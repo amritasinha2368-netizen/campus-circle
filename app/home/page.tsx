@@ -10,7 +10,10 @@ export default function Home() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState("Lost");
-  const [location, setLocation] = useState("");
+  const [collectNear, setCollectNear] = useState("");
+  const [lastSeen, setLastSeen] = useState("");
+  const [collectorName, setCollectorName] = useState("");
+  const [reward, setReward] = useState("");
   const [files, setFiles] = useState<any[]>([]);
   const [userEmail, setUserEmail] = useState("");
   const [selectedImage, setSelectedImage] = useState("");
@@ -70,9 +73,27 @@ export default function Home() {
     fetchPosts();
   }
 
+  async function uploadFile(file: any) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "-");
+    const fileName = `${Date.now()}-${safeName}`;
+
+    const { error } = await supabase.storage
+      .from("post-images")
+      .upload(fileName, file);
+
+    if (error) {
+      throw error;
+    }
+
+    return supabase.storage.from("post-images").getPublicUrl(fileName).data
+      .publicUrl;
+  }
+
   async function addPost() {
-    if (!title || !description || !location || files.length === 0) {
-      alert("Please fill all fields and choose at least one file");
+    if (!title || !description || !collectNear || files.length === 0) {
+      alert(
+        "Please fill title, description, collect it near, and choose at least one image/file"
+      );
       return;
     }
 
@@ -88,57 +109,49 @@ export default function Home() {
       return;
     }
 
-    const uploadedUrls = await Promise.all(
-      files.map(async (file) => {
-        const fileName = `${Date.now()}-${file.name}`;
+    try {
+      const uploadedUrls = await Promise.all(
+        files.map((file) => uploadFile(file))
+      );
 
-        const { error: uploadError } = await supabase.storage
-          .from("post-images")
-          .upload(fileName, file);
+      const { error } = await supabase.from("posts").insert([
+        {
+          title: title.trim(),
+          description: description.trim(),
+          type,
+          location: collectNear.trim(),
+          last_seen: lastSeen.trim(),
+          collector_name: collectorName.trim(),
+          reward: reward.trim(),
+          image_urls: uploadedUrls,
+          user_id: user.id,
+        },
+      ]);
 
-        if (uploadError) {
-          throw uploadError;
+      if (error) {
+        console.log(error);
+        alert("Error adding post");
+      } else {
+        alert("Post added successfully");
+
+        setTitle("");
+        setDescription("");
+        setType("Lost");
+        setCollectNear("");
+        setLastSeen("");
+        setCollectorName("");
+        setReward("");
+        setFiles([]);
+
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
         }
 
-        return supabase.storage
-          .from("post-images")
-          .getPublicUrl(fileName).data.publicUrl;
-      })
-    ).catch((error) => {
-      console.log(error);
-      alert("File upload failed");
-      setIsAdding(false);
-      return null;
-    });
-
-    if (!uploadedUrls) return;
-
-    const { error } = await supabase.from("posts").insert([
-      {
-        title: title.trim(),
-        description: description.trim(),
-        type,
-        location: location.trim(),
-        image_urls: uploadedUrls,
-        user_id: user.id,
-      },
-    ]);
-
-    if (error) {
-      alert("Error adding post");
-    } else {
-      alert("Post added successfully");
-      setTitle("");
-      setDescription("");
-      setLocation("");
-      setType("Lost");
-      setFiles([]);
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+        fetchPosts();
       }
-
-      fetchPosts();
+    } catch (error) {
+      console.log(error);
+      alert("Upload failed");
     }
 
     setIsAdding(false);
@@ -163,6 +176,7 @@ export default function Home() {
 
       setUserEmail(user.email || "");
       localStorage.setItem("userEmail", user.email || "");
+
       fetchPosts();
     }
 
@@ -173,7 +187,10 @@ export default function Home() {
     const matchesSearch =
       post.title?.toLowerCase().includes(search.toLowerCase()) ||
       post.description?.toLowerCase().includes(search.toLowerCase()) ||
-      post.location?.toLowerCase().includes(search.toLowerCase());
+      post.location?.toLowerCase().includes(search.toLowerCase()) ||
+      post.last_seen?.toLowerCase().includes(search.toLowerCase()) ||
+      post.collector_name?.toLowerCase().includes(search.toLowerCase()) ||
+      post.reward?.toLowerCase().includes(search.toLowerCase());
 
     const matchesFilter = filter === "All" || post.type === filter;
 
@@ -204,15 +221,24 @@ export default function Home() {
                 🏠 Lost & Found
               </Link>
 
-              <Link href="/notes" className="block rounded-2xl px-5 py-4 text-gray-300">
+              <Link
+                href="/notes"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
                 📄 Notes
               </Link>
 
-              <Link href="/events" className="block rounded-2xl px-5 py-4 text-gray-300">
+              <Link
+                href="/events"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
                 📅 Events
               </Link>
 
-              <Link href="/marketplace" className="block rounded-2xl px-5 py-4 text-gray-300">
+              <Link
+                href="/marketplace"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
                 🛒 Marketplace
               </Link>
             </nav>
@@ -309,6 +335,7 @@ export default function Home() {
                               className="h-36 rounded-2xl bg-black border border-white/10 flex flex-col items-center justify-center text-center p-4"
                             >
                               <span className="text-3xl mb-2">📄</span>
+
                               <span className="text-sm text-gray-300 line-clamp-2">
                                 {getFileName(url)}
                               </span>
@@ -332,9 +359,31 @@ export default function Home() {
 
                         <h4 className="text-2xl font-bold">{post.title}</h4>
 
-                        <p className="text-gray-400 mt-2">{post.description}</p>
+                        <p className="text-gray-400 mt-2">
+                          {post.description}
+                        </p>
 
-                        <p className="text-gray-500 mt-3">📍 {post.location}</p>
+                        {post.last_seen && (
+                          <p className="text-gray-500 mt-3">
+                            👀 Last seen: {post.last_seen}
+                          </p>
+                        )}
+
+                        <p className="text-gray-500 mt-3">
+                          📍 Collect it near: {post.location}
+                        </p>
+
+                        {post.collector_name && (
+                          <p className="text-gray-500 mt-3">
+                            🙋 Found by: {post.collector_name}
+                          </p>
+                        )}
+
+                        {post.reward && (
+                          <p className="text-yellow-300 mt-3">
+                            🎁 Reward: {post.reward}
+                          </p>
+                        )}
                       </div>
 
                       <button
@@ -357,6 +406,10 @@ export default function Home() {
 
             <aside className="rounded-3xl border border-white/10 bg-zinc-900 p-6 h-fit sticky top-8">
               <h3 className="text-2xl font-bold mb-2">Add Post</h3>
+
+              <p className="text-gray-400 mb-6">
+                Add clear details so students can identify the item quickly.
+              </p>
 
               <div className="space-y-4">
                 <input
@@ -401,12 +454,37 @@ export default function Home() {
 
                 <input
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
-                  placeholder="Location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Last seen of article"
+                  value={lastSeen}
+                  onChange={(e) => setLastSeen(e.target.value)}
+                />
+
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Collect it near"
+                  value={collectNear}
+                  onChange={(e) => setCollectNear(e.target.value)}
+                />
+
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Finder name optional"
+                  value={collectorName}
+                  onChange={(e) => setCollectorName(e.target.value)}
+                />
+
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Reward if returned optional"
+                  value={reward}
+                  onChange={(e) => setReward(e.target.value)}
                 />
 
                 <div className="rounded-2xl border border-dashed border-purple-400/40 bg-black p-4">
+                  <p className="text-sm text-gray-400 mb-2">
+                    Upload images/files
+                  </p>
+
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -421,7 +499,9 @@ export default function Home() {
                           key={index}
                           className="flex items-center justify-between gap-3 rounded-xl bg-zinc-900 px-3 py-2"
                         >
-                          <p className="text-gray-300 text-sm truncate">{file.name}</p>
+                          <p className="text-gray-300 text-sm truncate">
+                            {file.name}
+                          </p>
 
                           <button
                             type="button"
@@ -461,7 +541,11 @@ export default function Home() {
           onClick={() => setSelectedImage("")}
           className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-6"
         >
-          <img src={selectedImage} className="max-w-full max-h-full rounded-2xl" />
+          <img
+            src={selectedImage}
+            className="max-w-full max-h-full rounded-2xl"
+            alt="Preview"
+          />
 
           <button
             onClick={() => setSelectedImage("")}
@@ -470,8 +554,7 @@ export default function Home() {
             ✕
           </button>
         </div>
-         )}
+      )}
     </main>
   );
 }
-     

@@ -11,6 +11,7 @@ export default function MarketplacePage() {
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [contact, setContact] = useState("");
+  const [sellerName, setSellerName] = useState("");
   const [files, setFiles] = useState<any[]>([]);
   const [userEmail, setUserEmail] = useState("");
   const [selectedImage, setSelectedImage] = useState("");
@@ -64,9 +65,25 @@ export default function MarketplacePage() {
     fetchItems();
   }
 
+  async function uploadFile(file: any) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "-");
+    const fileName = `${Date.now()}-${safeName}`;
+
+    const { error } = await supabase.storage
+      .from("post-images")
+      .upload(fileName, file);
+
+    if (error) {
+      throw error;
+    }
+
+    return supabase.storage.from("post-images").getPublicUrl(fileName).data
+      .publicUrl;
+  }
+
   async function addItem() {
     if (!itemName || !price || !description || !contact || files.length === 0) {
-      alert("Please fill all fields and choose at least one file");
+      alert("Please fill item name, price, description, contact, and choose at least one file");
       return;
     }
 
@@ -82,55 +99,45 @@ export default function MarketplacePage() {
       return;
     }
 
-    const uploadedUrls = await Promise.all(
-      files.map(async (file) => {
-        const fileName = `${Date.now()}-${file.name}`;
+    try {
+      const uploadedUrls = await Promise.all(
+        files.map((file) => uploadFile(file))
+      );
 
-        const { error: uploadError } = await supabase.storage
-          .from("post-images")
-          .upload(fileName, file);
+      const { error } = await supabase.from("marketplace").insert([
+        {
+          item_name: itemName.trim(),
+          price: price.trim(),
+          description: description.trim(),
+          contact: contact.trim(),
+          seller_name: sellerName.trim(),
+          image_urls: uploadedUrls,
+          user_id: user.id,
+        },
+      ]);
 
-        if (uploadError) throw uploadError;
+      if (error) {
+        console.log(error);
+        alert("Error adding item");
+      } else {
+        alert("Item added successfully");
 
-        return supabase.storage
-          .from("post-images")
-          .getPublicUrl(fileName).data.publicUrl;
-      })
-    ).catch((error) => {
-      console.log(error);
-      alert("File upload failed");
-      setIsAdding(false);
-      return null;
-    });
+        setItemName("");
+        setPrice("");
+        setDescription("");
+        setContact("");
+        setSellerName("");
+        setFiles([]);
 
-    if (!uploadedUrls) return;
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
 
-    const { error } = await supabase.from("marketplace").insert([
-      {
-        item_name: itemName.trim(),
-        price: price.trim(),
-        description: description.trim(),
-        contact: contact.trim(),
-        image_urls: uploadedUrls,
-        user_id: user.id,
-      },
-    ]);
-
-    if (error) {
-      alert("Error adding item");
-    } else {
-      alert("Item added successfully");
-      setItemName("");
-      setPrice("");
-      setDescription("");
-      setContact("");
-      setFiles([]);
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+        fetchItems();
       }
-
-      fetchItems();
+    } catch (error) {
+      console.log(error);
+      alert("Upload failed");
     }
 
     setIsAdding(false);
@@ -155,6 +162,7 @@ export default function MarketplacePage() {
 
       setUserEmail(user.email || "");
       localStorage.setItem("userEmail", user.email || "");
+
       fetchItems();
     }
 
@@ -165,7 +173,9 @@ export default function MarketplacePage() {
     return (
       item.item_name?.toLowerCase().includes(search.toLowerCase()) ||
       item.description?.toLowerCase().includes(search.toLowerCase()) ||
-      item.price?.toLowerCase().includes(search.toLowerCase())
+      item.price?.toLowerCase().includes(search.toLowerCase()) ||
+      item.contact?.toLowerCase().includes(search.toLowerCase()) ||
+      item.seller_name?.toLowerCase().includes(search.toLowerCase())
     );
   });
 
@@ -186,15 +196,24 @@ export default function MarketplacePage() {
             </div>
 
             <nav className="space-y-3">
-              <Link href="/home" className="block rounded-2xl px-5 py-4 text-gray-300">
+              <Link
+                href="/home"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
                 🏠 Lost & Found
               </Link>
 
-              <Link href="/notes" className="block rounded-2xl px-5 py-4 text-gray-300">
+              <Link
+                href="/notes"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
                 📄 Notes
               </Link>
 
-              <Link href="/events" className="block rounded-2xl px-5 py-4 text-gray-300">
+              <Link
+                href="/events"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
                 📅 Events
               </Link>
 
@@ -279,6 +298,7 @@ export default function MarketplacePage() {
                               className="h-36 rounded-2xl bg-black border border-white/10 flex flex-col items-center justify-center text-center p-4"
                             >
                               <span className="text-3xl mb-2">📄</span>
+
                               <span className="text-sm text-gray-300 line-clamp-2">
                                 {getFileName(url)}
                               </span>
@@ -301,6 +321,12 @@ export default function MarketplacePage() {
                         <p className="text-gray-400 mt-2">
                           {item.description}
                         </p>
+
+                        {item.seller_name && (
+                          <p className="text-gray-500 mt-3">
+                            👤 Seller: {item.seller_name}
+                          </p>
+                        )}
 
                         <p className="text-gray-500 mt-3">
                           📞 {item.contact}
@@ -328,6 +354,10 @@ export default function MarketplacePage() {
             <aside className="rounded-3xl border border-white/10 bg-zinc-900 p-6 h-fit sticky top-8">
               <h3 className="text-2xl font-bold mb-2">Add Item</h3>
 
+              <p className="text-gray-400 mb-6">
+                Add clear item details. Seller name is optional.
+              </p>
+
               <div className="space-y-4">
                 <input
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
@@ -352,12 +382,23 @@ export default function MarketplacePage() {
 
                 <input
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Seller name optional"
+                  value={sellerName}
+                  onChange={(e) => setSellerName(e.target.value)}
+                />
+
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
                   placeholder="Contact"
                   value={contact}
                   onChange={(e) => setContact(e.target.value)}
                 />
 
                 <div className="rounded-2xl border border-dashed border-purple-400/40 bg-black p-4">
+                  <p className="text-sm text-gray-400 mb-2">
+                    Upload item images/files
+                  </p>
+
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -372,7 +413,9 @@ export default function MarketplacePage() {
                           key={index}
                           className="flex items-center justify-between gap-3 rounded-xl bg-zinc-900 px-3 py-2"
                         >
-                          <p className="text-gray-300 text-sm truncate">{file.name}</p>
+                          <p className="text-gray-300 text-sm truncate">
+                            {file.name}
+                          </p>
 
                           <button
                             type="button"

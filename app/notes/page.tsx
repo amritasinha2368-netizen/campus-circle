@@ -10,6 +10,7 @@ export default function NotesPage() {
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
+  const [uploaderName, setUploaderName] = useState("");
   const [files, setFiles] = useState<any[]>([]);
   const [userEmail, setUserEmail] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -51,9 +52,25 @@ export default function NotesPage() {
     fetchNotes();
   }
 
+  async function uploadFile(file: any) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "-");
+    const fileName = `${Date.now()}-${safeName}`;
+
+    const { error } = await supabase.storage
+      .from("post-images")
+      .upload(fileName, file);
+
+    if (error) {
+      throw error;
+    }
+
+    return supabase.storage.from("post-images").getPublicUrl(fileName).data
+      .publicUrl;
+  }
+
   async function addNote() {
     if (!title || !subject || !description || files.length === 0) {
-      alert("Please fill all fields and choose at least one file");
+      alert("Please fill title, subject, description, and choose at least one file");
       return;
     }
 
@@ -69,53 +86,43 @@ export default function NotesPage() {
       return;
     }
 
-    const uploadedUrls = await Promise.all(
-      files.map(async (file) => {
-        const fileName = `${Date.now()}-${file.name}`;
+    try {
+      const uploadedUrls = await Promise.all(
+        files.map((file) => uploadFile(file))
+      );
 
-        const { error: uploadError } = await supabase.storage
-          .from("post-images")
-          .upload(fileName, file);
+      const { error } = await supabase.from("notes").insert([
+        {
+          title: title.trim(),
+          subject: subject.trim(),
+          description: description.trim(),
+          uploader_name: uploaderName.trim(),
+          file_urls: uploadedUrls,
+          user_id: user.id,
+        },
+      ]);
 
-        if (uploadError) throw uploadError;
+      if (error) {
+        console.log(error);
+        alert("Error adding note");
+      } else {
+        alert("Note added successfully");
 
-        return supabase.storage
-          .from("post-images")
-          .getPublicUrl(fileName).data.publicUrl;
-      })
-    ).catch((error) => {
-      console.log(error);
-      alert("File upload failed");
-      setIsAdding(false);
-      return null;
-    });
+        setTitle("");
+        setSubject("");
+        setDescription("");
+        setUploaderName("");
+        setFiles([]);
 
-    if (!uploadedUrls) return;
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
 
-    const { error } = await supabase.from("notes").insert([
-      {
-        title: title.trim(),
-        subject: subject.trim(),
-        description: description.trim(),
-        file_urls: uploadedUrls,
-        user_id: user.id,
-      },
-    ]);
-
-    if (error) {
-      alert("Error adding note");
-    } else {
-      alert("Note added successfully");
-      setTitle("");
-      setSubject("");
-      setDescription("");
-      setFiles([]);
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+        fetchNotes();
       }
-
-      fetchNotes();
+    } catch (error) {
+      console.log(error);
+      alert("Upload failed");
     }
 
     setIsAdding(false);
@@ -140,6 +147,7 @@ export default function NotesPage() {
 
       setUserEmail(user.email || "");
       localStorage.setItem("userEmail", user.email || "");
+
       fetchNotes();
     }
 
@@ -150,7 +158,8 @@ export default function NotesPage() {
     return (
       note.title?.toLowerCase().includes(search.toLowerCase()) ||
       note.description?.toLowerCase().includes(search.toLowerCase()) ||
-      note.subject?.toLowerCase().includes(search.toLowerCase())
+      note.subject?.toLowerCase().includes(search.toLowerCase()) ||
+      note.uploader_name?.toLowerCase().includes(search.toLowerCase())
     );
   });
 
@@ -171,7 +180,10 @@ export default function NotesPage() {
             </div>
 
             <nav className="space-y-3">
-              <Link href="/home" className="block rounded-2xl px-5 py-4 text-gray-300">
+              <Link
+                href="/home"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
                 🏠 Lost & Found
               </Link>
 
@@ -182,11 +194,17 @@ export default function NotesPage() {
                 📄 Notes
               </Link>
 
-              <Link href="/events" className="block rounded-2xl px-5 py-4 text-gray-300">
+              <Link
+                href="/events"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
                 📅 Events
               </Link>
 
-              <Link href="/marketplace" className="block rounded-2xl px-5 py-4 text-gray-300">
+              <Link
+                href="/marketplace"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
                 🛒 Marketplace
               </Link>
             </nav>
@@ -253,7 +271,15 @@ export default function NotesPage() {
 
                         <h4 className="text-2xl font-bold">{note.title}</h4>
 
-                        <p className="text-gray-400 mt-2">{note.description}</p>
+                        <p className="text-gray-400 mt-2">
+                          {note.description}
+                        </p>
+
+                        {note.uploader_name && (
+                          <p className="text-gray-500 text-sm mt-3">
+                            Uploaded by: {note.uploader_name}
+                          </p>
+                        )}
 
                         {note.file_urls && note.file_urls.length > 0 && (
                           <div className="mt-5 grid sm:grid-cols-2 gap-3">
@@ -302,6 +328,10 @@ export default function NotesPage() {
             <aside className="rounded-3xl border border-white/10 bg-zinc-900 p-6 h-fit sticky top-8">
               <h3 className="text-2xl font-bold mb-2">Add Note</h3>
 
+              <p className="text-gray-400 mb-6">
+                Upload useful study material for your classmates.
+              </p>
+
               <div className="space-y-4">
                 <input
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
@@ -324,7 +354,18 @@ export default function NotesPage() {
                   onChange={(e) => setDescription(e.target.value)}
                 />
 
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Uploader name optional"
+                  value={uploaderName}
+                  onChange={(e) => setUploaderName(e.target.value)}
+                />
+
                 <div className="rounded-2xl border border-dashed border-purple-400/40 bg-black p-4">
+                  <p className="text-sm text-gray-400 mb-2">
+                    Upload notes/files
+                  </p>
+
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -339,7 +380,9 @@ export default function NotesPage() {
                           key={index}
                           className="flex items-center justify-between gap-3 rounded-xl bg-zinc-900 px-3 py-2"
                         >
-                          <p className="text-gray-300 text-sm truncate">{file.name}</p>
+                          <p className="text-gray-300 text-sm truncate">
+                            {file.name}
+                          </p>
 
                           <button
                             type="button"
