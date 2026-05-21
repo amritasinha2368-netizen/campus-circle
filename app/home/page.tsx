@@ -23,7 +23,6 @@ export default function Home() {
 
   function isImageFile(url: string) {
     const lowerUrl = url.toLowerCase();
-
     return (
       lowerUrl.includes(".jpg") ||
       lowerUrl.includes(".jpeg") ||
@@ -129,7 +128,6 @@ export default function Home() {
       alert("Error adding post");
     } else {
       alert("Post added successfully");
-
       setTitle("");
       setDescription("");
       setLocation("");
@@ -165,7 +163,6 @@ export default function Home() {
 
       setUserEmail(user.email || "");
       localStorage.setItem("userEmail", user.email || "");
-
       fetchPosts();
     }
 
@@ -207,24 +204,15 @@ export default function Home() {
                 🏠 Lost & Found
               </Link>
 
-              <Link
-                href="/notes"
-                className="block rounded-2xl px-5 py-4 text-gray-300"
-              >
+              <Link href="/notes" className="block rounded-2xl px-5 py-4 text-gray-300">
                 📄 Notes
               </Link>
 
-              <Link
-                href="/events"
-                className="block rounded-2xl px-5 py-4 text-gray-300"
-              >
+              <Link href="/events" className="block rounded-2xl px-5 py-4 text-gray-300">
                 📅 Events
               </Link>
 
-              <Link
-                href="/marketplace"
-                className="block rounded-2xl px-5 py-4 text-gray-300"
-              >
+              <Link href="/marketplace" className="block rounded-2xl px-5 py-4 text-gray-300">
                 🛒 Marketplace
               </Link>
             </nav>
@@ -251,9 +239,7 @@ export default function Home() {
             <h2 className="text-4xl md:text-6xl font-black leading-tight">
               Lost & Found
               <br />
-              <span className="text-purple-400">
-                Campus Dashboard
-              </span>
+              <span className="text-purple-400">Campus Dashboard</span>
             </h2>
 
             <p className="text-gray-400 mt-4 max-w-2xl text-lg">
@@ -266,7 +252,6 @@ export default function Home() {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
                 <div>
                   <h3 className="text-2xl font-bold">Recent Posts</h3>
-
                   <p className="text-sm text-gray-500">
                     Showing {filteredPosts.length} of {posts.length} posts
                   </p>
@@ -280,32 +265,22 @@ export default function Home() {
                     onChange={(e) => setSearch(e.target.value)}
                   />
 
-                 <select
-  className="px-4 py-3 rounded-2xl bg-zinc-900 border border-white/10 text-white outline-none appearance-none"
-  value={filter}
-  onChange={(e) => setFilter(e.target.value)}
->
-  <option
-    className="bg-zinc-900 text-white"
-    value="All"
-  >
-    All
-  </option>
-
-  <option
-    className="bg-zinc-900 text-white"
-    value="Lost"
-  >
-    Lost
-  </option>
-
-  <option
-    className="bg-zinc-900 text-white"
-    value="Found"
-  >
-    Found
-  </option>
-</select>
+                  <div className="flex gap-2">
+                    {["All", "Lost", "Found"].map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => setFilter(item)}
+                        className={`px-4 py-3 rounded-2xl border border-white/10 ${
+                          filter === item
+                            ? "bg-purple-600 text-white"
+                            : "bg-zinc-900 text-gray-300"
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -324,6 +299,7 @@ export default function Home() {
                               src={url}
                               onClick={() => setSelectedImage(url)}
                               className="w-full h-36 object-cover rounded-2xl cursor-pointer"
+                              alt="Uploaded item"
                             />
                           ) : (
                             <a
@@ -333,7 +309,6 @@ export default function Home() {
                               className="h-36 rounded-2xl bg-black border border-white/10 flex flex-col items-center justify-center text-center p-4"
                             >
                               <span className="text-3xl mb-2">📄</span>
-
                               <span className="text-sm text-gray-300 line-clamp-2">
                                 {getFileName(url)}
                               </span>
@@ -355,17 +330,11 @@ export default function Home() {
                           {post.type}
                         </span>
 
-                        <h4 className="text-2xl font-bold">
-                          {post.title}
-                        </h4>
+                        <h4 className="text-2xl font-bold">{post.title}</h4>
 
-                        <p className="text-gray-400 mt-2">
-                          {post.description}
-                        </p>
+                        <p className="text-gray-400 mt-2">{post.description}</p>
 
-                        <p className="text-gray-500 mt-3">
-                          📍 {post.location}
-                        </p>
+                        <p className="text-gray-500 mt-3">📍 {post.location}</p>
                       </div>
 
                       <button
@@ -377,13 +346,17 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
+
+                {filteredPosts.length === 0 && (
+                  <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center text-gray-400">
+                    No matching posts found.
+                  </div>
+                )}
               </div>
             </section>
 
             <aside className="rounded-3xl border border-white/10 bg-zinc-900 p-6 h-fit sticky top-8">
-              <h3 className="text-2xl font-bold mb-2">
-                Add Post
-              </h3>
+              <h3 className="text-2xl font-bold mb-2">Add Post</h3>
 
               <div className="space-y-4">
                 <input
@@ -400,25 +373,31 @@ export default function Home() {
                   onChange={(e) => setDescription(e.target.value)}
                 />
 
-              <select
-  className="w-full p-4 rounded-2xl bg-zinc-900 border border-white/10 text-white outline-none appearance-none"
-  value={type}
-  onChange={(e) => setType(e.target.value)}
->
-  <option
-    className="bg-zinc-900 text-white"
-    value="Lost"
-  >
-    Lost
-  </option>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setType("Lost")}
+                    className={`p-4 rounded-2xl border border-white/10 ${
+                      type === "Lost"
+                        ? "bg-purple-600 text-white"
+                        : "bg-black text-gray-300"
+                    }`}
+                  >
+                    Lost
+                  </button>
 
-  <option
-    className="bg-zinc-900 text-white"
-    value="Found"
-  >
-    Found
-  </option>
-</select>
+                  <button
+                    type="button"
+                    onClick={() => setType("Found")}
+                    className={`p-4 rounded-2xl border border-white/10 ${
+                      type === "Found"
+                        ? "bg-green-600 text-white"
+                        : "bg-black text-gray-300"
+                    }`}
+                  >
+                    Found
+                  </button>
+                </div>
 
                 <input
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
@@ -432,10 +411,36 @@ export default function Home() {
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    onChange={(e) =>
-                      setFiles(Array.from(e.target.files || []))
-                    }
+                    onChange={(e) => setFiles(Array.from(e.target.files || []))}
                   />
+
+                  {files.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      {files.map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between gap-3 rounded-xl bg-zinc-900 px-3 py-2"
+                        >
+                          <p className="text-gray-300 text-sm truncate">{file.name}</p>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = files.filter((_, i) => i !== index);
+                              setFiles(updated);
+
+                              if (updated.length === 0 && fileInputRef.current) {
+                                fileInputRef.current.value = "";
+                              }
+                            }}
+                            className="text-gray-400 text-sm"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -456,10 +461,7 @@ export default function Home() {
           onClick={() => setSelectedImage("")}
           className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-6"
         >
-          <img
-            src={selectedImage}
-            className="max-w-full max-h-full rounded-2xl"
-          />
+          <img src={selectedImage} className="max-w-full max-h-full rounded-2xl" />
 
           <button
             onClick={() => setSelectedImage("")}
@@ -467,9 +469,9 @@ export default function Home() {
           >
             ✕
           </button>
-            </div>
-      )}
+        </div>
+         )}
     </main>
   );
 }
-        
+     

@@ -22,7 +22,6 @@ export default function MarketplacePage() {
 
   function isImageFile(url: string) {
     const lowerUrl = url.toLowerCase();
-
     return (
       lowerUrl.includes(".jpg") ||
       lowerUrl.includes(".jpeg") ||
@@ -91,9 +90,7 @@ export default function MarketplacePage() {
           .from("post-images")
           .upload(fileName, file);
 
-        if (uploadError) {
-          throw uploadError;
-        }
+        if (uploadError) throw uploadError;
 
         return supabase.storage
           .from("post-images")
@@ -123,7 +120,6 @@ export default function MarketplacePage() {
       alert("Error adding item");
     } else {
       alert("Item added successfully");
-
       setItemName("");
       setPrice("");
       setDescription("");
@@ -159,7 +155,6 @@ export default function MarketplacePage() {
 
       setUserEmail(user.email || "");
       localStorage.setItem("userEmail", user.email || "");
-
       fetchItems();
     }
 
@@ -191,24 +186,15 @@ export default function MarketplacePage() {
             </div>
 
             <nav className="space-y-3">
-              <Link
-                href="/home"
-                className="block rounded-2xl px-5 py-4 text-gray-300"
-              >
+              <Link href="/home" className="block rounded-2xl px-5 py-4 text-gray-300">
                 🏠 Lost & Found
               </Link>
 
-              <Link
-                href="/notes"
-                className="block rounded-2xl px-5 py-4 text-gray-300"
-              >
+              <Link href="/notes" className="block rounded-2xl px-5 py-4 text-gray-300">
                 📄 Notes
               </Link>
 
-              <Link
-                href="/events"
-                className="block rounded-2xl px-5 py-4 text-gray-300"
-              >
+              <Link href="/events" className="block rounded-2xl px-5 py-4 text-gray-300">
                 📅 Events
               </Link>
 
@@ -242,9 +228,7 @@ export default function MarketplacePage() {
             <h2 className="text-4xl md:text-6xl font-black leading-tight">
               Campus
               <br />
-              <span className="text-purple-400">
-                Marketplace
-              </span>
+              <span className="text-purple-400">Marketplace</span>
             </h2>
 
             <p className="text-gray-400 mt-4 max-w-2xl text-lg">
@@ -257,7 +241,6 @@ export default function MarketplacePage() {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
                 <div>
                   <h3 className="text-2xl font-bold">Marketplace Items</h3>
-
                   <p className="text-sm text-gray-500">
                     Showing {filteredItems.length} of {items.length} items
                   </p>
@@ -286,6 +269,7 @@ export default function MarketplacePage() {
                               src={url}
                               onClick={() => setSelectedImage(url)}
                               className="w-full h-36 object-cover rounded-2xl cursor-pointer"
+                              alt="Marketplace item"
                             />
                           ) : (
                             <a
@@ -295,7 +279,6 @@ export default function MarketplacePage() {
                               className="h-36 rounded-2xl bg-black border border-white/10 flex flex-col items-center justify-center text-center p-4"
                             >
                               <span className="text-3xl mb-2">📄</span>
-
                               <span className="text-sm text-gray-300 line-clamp-2">
                                 {getFileName(url)}
                               </span>
@@ -333,13 +316,17 @@ export default function MarketplacePage() {
                     </div>
                   </div>
                 ))}
+
+                {filteredItems.length === 0 && (
+                  <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center text-gray-400">
+                    No matching items found.
+                  </div>
+                )}
               </div>
             </section>
 
             <aside className="rounded-3xl border border-white/10 bg-zinc-900 p-6 h-fit sticky top-8">
-              <h3 className="text-2xl font-bold mb-2">
-                Add Item
-              </h3>
+              <h3 className="text-2xl font-bold mb-2">Add Item</h3>
 
               <div className="space-y-4">
                 <input
@@ -375,10 +362,36 @@ export default function MarketplacePage() {
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    onChange={(e) =>
-                      setFiles(Array.from(e.target.files || []))
-                    }
+                    onChange={(e) => setFiles(Array.from(e.target.files || []))}
                   />
+
+                  {files.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      {files.map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between gap-3 rounded-xl bg-zinc-900 px-3 py-2"
+                        >
+                          <p className="text-gray-300 text-sm truncate">{file.name}</p>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = files.filter((_, i) => i !== index);
+                              setFiles(updated);
+
+                              if (updated.length === 0 && fileInputRef.current) {
+                                fileInputRef.current.value = "";
+                              }
+                            }}
+                            className="text-gray-400 text-sm"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -402,6 +415,7 @@ export default function MarketplacePage() {
           <img
             src={selectedImage}
             className="max-w-full max-h-full rounded-2xl"
+            alt="Preview"
           />
 
           <button

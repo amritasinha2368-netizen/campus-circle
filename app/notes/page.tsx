@@ -77,9 +77,7 @@ export default function NotesPage() {
           .from("post-images")
           .upload(fileName, file);
 
-        if (uploadError) {
-          throw uploadError;
-        }
+        if (uploadError) throw uploadError;
 
         return supabase.storage
           .from("post-images")
@@ -108,7 +106,6 @@ export default function NotesPage() {
       alert("Error adding note");
     } else {
       alert("Note added successfully");
-
       setTitle("");
       setSubject("");
       setDescription("");
@@ -143,7 +140,6 @@ export default function NotesPage() {
 
       setUserEmail(user.email || "");
       localStorage.setItem("userEmail", user.email || "");
-
       fetchNotes();
     }
 
@@ -179,7 +175,10 @@ export default function NotesPage() {
                 🏠 Lost & Found
               </Link>
 
-              <Link href="/notes" className="block rounded-2xl bg-purple-600/30 border border-purple-400/30 px-5 py-4 font-semibold">
+              <Link
+                href="/notes"
+                className="block rounded-2xl bg-purple-600/30 border border-purple-400/30 px-5 py-4 font-semibold"
+              >
                 📄 Notes
               </Link>
 
@@ -303,10 +302,6 @@ export default function NotesPage() {
             <aside className="rounded-3xl border border-white/10 bg-zinc-900 p-6 h-fit sticky top-8">
               <h3 className="text-2xl font-bold mb-2">Add Note</h3>
 
-              <p className="text-gray-400 mb-6">
-                Upload useful study material for your classmates.
-              </p>
-
               <div className="space-y-4">
                 <input
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
@@ -334,9 +329,7 @@ export default function NotesPage() {
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    onChange={(e) =>
-                      setFiles(Array.from(e.target.files || []))
-                    }
+                    onChange={(e) => setFiles(Array.from(e.target.files || []))}
                   />
 
                   {files.length > 0 && (
@@ -346,23 +339,15 @@ export default function NotesPage() {
                           key={index}
                           className="flex items-center justify-between gap-3 rounded-xl bg-zinc-900 px-3 py-2"
                         >
-                          <p className="text-gray-300 text-sm truncate">
-                            {file.name}
-                          </p>
+                          <p className="text-gray-300 text-sm truncate">{file.name}</p>
 
                           <button
                             type="button"
                             onClick={() => {
-                              const updated = files.filter(
-                                (_, i) => i !== index
-                              );
-
+                              const updated = files.filter((_, i) => i !== index);
                               setFiles(updated);
 
-                              if (
-                                updated.length === 0 &&
-                                fileInputRef.current
-                              ) {
+                              if (updated.length === 0 && fileInputRef.current) {
                                 fileInputRef.current.value = "";
                               }
                             }}
