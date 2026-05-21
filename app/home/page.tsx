@@ -280,15 +280,32 @@ export default function Home() {
                     onChange={(e) => setSearch(e.target.value)}
                   />
 
-                  <select
-                    className="px-4 py-3 rounded-2xl bg-zinc-900 border border-white/10 text-white outline-none"
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                  >
-                    <option value="All">All</option>
-                    <option value="Lost">Lost</option>
-                    <option value="Found">Found</option>
-                  </select>
+                 <select
+  className="px-4 py-3 rounded-2xl bg-zinc-900 border border-white/10 text-white outline-none appearance-none"
+  value={filter}
+  onChange={(e) => setFilter(e.target.value)}
+>
+  <option
+    className="bg-zinc-900 text-white"
+    value="All"
+  >
+    All
+  </option>
+
+  <option
+    className="bg-zinc-900 text-white"
+    value="Lost"
+  >
+    Lost
+  </option>
+
+  <option
+    className="bg-zinc-900 text-white"
+    value="Found"
+  >
+    Found
+  </option>
+</select>
                 </div>
               </div>
 
@@ -383,14 +400,25 @@ export default function Home() {
                   onChange={(e) => setDescription(e.target.value)}
                 />
 
-                <select
-                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white outline-none"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                >
-                  <option value="Lost">Lost</option>
-                  <option value="Found">Found</option>
-                </select>
+              <select
+  className="w-full p-4 rounded-2xl bg-zinc-900 border border-white/10 text-white outline-none appearance-none"
+  value={type}
+  onChange={(e) => setType(e.target.value)}
+>
+  <option
+    className="bg-zinc-900 text-white"
+    value="Lost"
+  >
+    Lost
+  </option>
+
+  <option
+    className="bg-zinc-900 text-white"
+    value="Found"
+  >
+    Found
+  </option>
+</select>
 
                 <input
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
