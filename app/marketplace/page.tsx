@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 
 export default function MarketplacePage() {
@@ -9,10 +10,30 @@ export default function MarketplacePage() {
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [contact, setContact] = useState("");
-  const [images, setImages] = useState<any[]>([]);
+  const [files, setFiles] = useState<any[]>([]);
+  const [userEmail, setUserEmail] = useState("");
   const [selectedImage, setSelectedImage] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+  const [search, setSearch] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const userName = userEmail ? userEmail.split("@")[0] : "";
+
+  function isImageFile(url: string) {
+    const lowerUrl = url.toLowerCase();
+
+    return (
+      lowerUrl.includes(".jpg") ||
+      lowerUrl.includes(".jpeg") ||
+      lowerUrl.includes(".png") ||
+      lowerUrl.includes(".webp") ||
+      lowerUrl.includes(".gif")
+    );
+  }
+
+  function getFileName(url: string) {
+    return decodeURIComponent(url.split("/").pop() || "Open File");
+  }
 
   async function fetchItems() {
     const { data } = await supabase.from("marketplace").select("*");
@@ -21,6 +42,7 @@ export default function MarketplacePage() {
 
   async function logout() {
     await supabase.auth.signOut();
+    localStorage.removeItem("userEmail");
     window.location.href = "/";
   }
 
@@ -34,7 +56,7 @@ export default function MarketplacePage() {
       .select();
 
     if (error || !data || data.length === 0) {
-      alert("Delete failed. Check RLS policy.");
+      alert("Delete failed. You can delete only your own item.");
       return;
     }
 
@@ -43,10 +65,12 @@ export default function MarketplacePage() {
   }
 
   async function addItem() {
-    if (!itemName || !price || !description || !contact || images.length === 0) {
-      alert("Please fill all fields and choose at least one image");
+    if (!itemName || !price || !description || !contact || files.length === 0) {
+      alert("Please fill all fields and choose at least one file");
       return;
     }
+
+    setIsAdding(true);
 
     const {
       data: { user },
@@ -54,29 +78,34 @@ export default function MarketplacePage() {
 
     if (!user) {
       alert("Please login first");
+      setIsAdding(false);
       return;
     }
 
-    const uploadedUrls: string[] = [];
+    const uploadedUrls = await Promise.all(
+      files.map(async (file) => {
+        const fileName = `${Date.now()}-${file.name}`;
 
-    for (const image of images) {
-      const fileName = `${Date.now()}-${image.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, file);
 
-      const { error: uploadError } = await supabase.storage
-        .from("post-images")
-        .upload(fileName, image);
+        if (uploadError) {
+          throw uploadError;
+        }
 
-      if (uploadError) {
-        alert("Image upload failed");
-        return;
-      }
+        return supabase.storage
+          .from("post-images")
+          .getPublicUrl(fileName).data.publicUrl;
+      })
+    ).catch((error) => {
+      console.log(error);
+      alert("File upload failed");
+      setIsAdding(false);
+      return null;
+    });
 
-      const imageUrl = supabase.storage
-        .from("post-images")
-        .getPublicUrl(fileName).data.publicUrl;
-
-      uploadedUrls.push(imageUrl);
-    }
+    if (!uploadedUrls) return;
 
     const { error } = await supabase.from("marketplace").insert([
       {
@@ -93,11 +122,12 @@ export default function MarketplacePage() {
       alert("Error adding item");
     } else {
       alert("Item added successfully");
+
       setItemName("");
       setPrice("");
       setDescription("");
       setContact("");
-      setImages([]);
+      setFiles([]);
 
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -105,9 +135,17 @@ export default function MarketplacePage() {
 
       fetchItems();
     }
+
+    setIsAdding(false);
   }
 
   useEffect(() => {
+    const savedEmail = localStorage.getItem("userEmail");
+
+    if (savedEmail) {
+      setUserEmail(savedEmail);
+    }
+
     async function checkAuth() {
       const {
         data: { user },
@@ -118,167 +156,247 @@ export default function MarketplacePage() {
         return;
       }
 
+      setUserEmail(user.email || "");
+      localStorage.setItem("userEmail", user.email || "");
+
       fetchItems();
     }
 
     checkAuth();
   }, []);
 
+  const filteredItems = items.filter((item) => {
+    return (
+      item.item_name?.toLowerCase().includes(search.toLowerCase()) ||
+      item.description?.toLowerCase().includes(search.toLowerCase()) ||
+      item.price?.toLowerCase().includes(search.toLowerCase())
+    );
+  });
+
   return (
-    <main className="min-h-screen bg-black text-white px-6 md:px-16 py-10">
-      <nav className="flex flex-wrap gap-4 mb-10 items-center">
-        <a href="/home" className="bg-zinc-800 text-white px-5 py-3 rounded-xl">
-          Lost & Found
-        </a>
-
-        <a href="/notes" className="bg-zinc-800 text-white px-5 py-3 rounded-xl">
-          Notes
-        </a>
-
-        <a href="/events" className="bg-zinc-800 text-white px-5 py-3 rounded-xl">
-          Events
-        </a>
-
-        <a href="/marketplace" className="bg-white text-black px-5 py-3 rounded-xl">
-          Marketplace
-        </a>
-
-        <button
-          onClick={logout}
-          className="bg-red-500 text-white px-5 py-3 rounded-xl"
-        >
-          Logout
-        </button>
-      </nav>
-
-      <h1 className="text-5xl font-bold mb-10">Marketplace</h1>
-
-      <div className="bg-zinc-900 p-8 rounded-3xl mb-12 max-w-2xl border border-zinc-800 shadow-xl">
-        <h2 className="text-2xl font-bold mb-4">
-          Sell Hostel Item
-        </h2>
-
-        <input
-          className="w-full p-3 mb-4 rounded-xl bg-white text-black"
-          placeholder="Item name"
-          value={itemName}
-          onChange={(e) => setItemName(e.target.value)}
-        />
-
-        <input
-          className="w-full p-3 mb-4 rounded-xl bg-white text-black"
-          placeholder="Price"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-        />
-
-        <textarea
-          className="w-full p-3 mb-4 rounded-xl bg-white text-black"
-          placeholder="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-
-        <input
-          className="w-full p-3 mb-4 rounded-xl bg-white text-black"
-          placeholder="Contact"
-          value={contact}
-          onChange={(e) => setContact(e.target.value)}
-        />
-
-        <div className="mb-6">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            onChange={(e) => setImages(Array.from(e.target.files || []))}
-          />
-
-          {images.length > 0 && (
-            <div className="mt-3 space-y-2">
-              {images.map((image, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <p className="text-gray-300 text-sm">
-                    {image.name}
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = images.filter((_, i) => i !== index);
-                      setImages(updated);
-
-                      if (updated.length === 0 && fileInputRef.current) {
-                        fileInputRef.current.value = "";
-                      }
-                    }}
-                    className="text-gray-400 hover:text-white text-sm"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <button
-          onClick={addItem}
-          className="bg-white text-black px-6 py-3 rounded-xl font-semibold"
-        >
-          Add Item
-        </button>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="bg-zinc-900 p-6 rounded-3xl border border-zinc-800 shadow-lg"
-          >
-            {item.image_urls && item.image_urls.length > 0 && (
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                {item.image_urls.map((url: string, index: number) => (
-                  <img
-                    key={index}
-                    src={url}
-                    onClick={() => setSelectedImage(url)}
-                    className="w-full h-40 object-cover rounded-xl cursor-pointer"
-                  />
-                ))}
+    <main className="min-h-screen bg-black text-white">
+      <div className="min-h-screen grid lg:grid-cols-[260px_1fr]">
+        <aside className="hidden lg:flex flex-col justify-between border-r border-white/10 bg-black p-6">
+          <div>
+            <div className="flex items-center gap-3 mb-10">
+              <div className="h-12 w-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl font-black">
+                C
               </div>
+
+              <div>
+                <h1 className="text-xl font-bold">Campus Circle</h1>
+                <p className="text-xs text-gray-400">Student network</p>
+              </div>
+            </div>
+
+            <nav className="space-y-3">
+              <Link
+                href="/home"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
+                🏠 Lost & Found
+              </Link>
+
+              <Link
+                href="/notes"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
+                📄 Notes
+              </Link>
+
+              <Link
+                href="/events"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
+                📅 Events
+              </Link>
+
+              <Link
+                href="/marketplace"
+                className="block rounded-2xl bg-purple-600/30 border border-purple-400/30 px-5 py-4 font-semibold"
+              >
+                🛒 Marketplace
+              </Link>
+            </nav>
+          </div>
+
+          <button
+            onClick={logout}
+            className="w-full rounded-2xl bg-red-500/15 border border-red-500/30 text-red-200 px-5 py-4"
+          >
+            Logout
+          </button>
+        </aside>
+
+        <section className="p-5 md:p-8 lg:p-10">
+          <header className="mb-10">
+            {userName && (
+              <p className="text-purple-300 mb-3 text-lg">
+                Hello, {userName} 👋
+              </p>
             )}
 
-            <p className="text-yellow-400 mb-2 font-semibold">
-              ₹ {item.price}
-            </p>
-
-            <h2 className="text-2xl font-bold">
-              {item.item_name}
+            <h2 className="text-4xl md:text-6xl font-black leading-tight">
+              Campus
+              <br />
+              <span className="text-purple-400">
+                Marketplace
+              </span>
             </h2>
+          </header>
 
-            <p className="text-gray-400 mt-2">
-              {item.description}
-            </p>
+          <div className="grid xl:grid-cols-[1fr_430px] gap-8">
+            <section>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
+                <div>
+                  <h3 className="text-2xl font-bold">Listed Items</h3>
 
-            <p className="text-gray-500 mt-2">
-              📞 {item.contact}
-            </p>
+                  <p className="text-sm text-gray-500">
+                    Showing {filteredItems.length} of {items.length} items
+                  </p>
+                </div>
 
-            <button
-              onClick={() => deleteItem(item.id)}
-              className="mt-4 bg-red-500 text-white px-4 py-2 rounded-xl"
-            >
-              Delete
-            </button>
+                <input
+                  className="w-full md:w-80 px-4 py-3 rounded-2xl bg-zinc-900 border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Search marketplace..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-5">
+                {filteredItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-3xl border border-white/10 bg-zinc-900 p-5"
+                  >
+                    {item.image_urls && item.image_urls.length > 0 && (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+                        {item.image_urls.map((url: string, index: number) =>
+                          isImageFile(url) ? (
+                            <img
+                              key={index}
+                              src={url}
+                              onClick={() => setSelectedImage(url)}
+                              className="w-full h-36 object-cover rounded-2xl cursor-pointer"
+                            />
+                          ) : (
+                            <a
+                              key={index}
+                              href={url}
+                              target="_blank"
+                              className="h-36 rounded-2xl bg-black border border-white/10 flex flex-col items-center justify-center text-center p-4"
+                            >
+                              <span className="text-3xl mb-2">📄</span>
+
+                              <span className="text-sm text-gray-300 line-clamp-2">
+                                {getFileName(url)}
+                              </span>
+                            </a>
+                          )
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <span className="inline-block px-4 py-1 rounded-full text-sm font-semibold mb-3 bg-yellow-500/20 text-yellow-300">
+                          ₹ {item.price}
+                        </span>
+
+                        <h4 className="text-2xl font-bold">
+                          {item.item_name}
+                        </h4>
+
+                        <p className="text-gray-400 mt-2">
+                          {item.description}
+                        </p>
+
+                        <p className="text-gray-500 mt-3">
+                          📞 {item.contact}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => deleteItem(item.id)}
+                        className="rounded-lg bg-red-500/10 border border-red-500/20 text-red-200 px-3 py-1.5 text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {filteredItems.length === 0 && (
+                  <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center text-gray-400">
+                    No matching items found.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <aside className="rounded-3xl border border-white/10 bg-zinc-900 p-6 h-fit sticky top-8">
+              <h3 className="text-2xl font-bold mb-2">
+                Sell Item
+              </h3>
+
+              <div className="space-y-4">
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Item name"
+                  value={itemName}
+                  onChange={(e) => setItemName(e.target.value)}
+                />
+
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Price"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                />
+
+                <textarea
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Contact"
+                  value={contact}
+                  onChange={(e) => setContact(e.target.value)}
+                />
+
+                <div className="rounded-2xl border border-dashed border-purple-400/40 bg-black p-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    onChange={(e) =>
+                      setFiles(Array.from(e.target.files || []))
+                    }
+                  />
+                </div>
+
+                <button
+                  onClick={addItem}
+                  disabled={isAdding}
+                  className="w-full bg-purple-600 text-white px-6 py-4 rounded-2xl font-bold disabled:opacity-60"
+                >
+                  {isAdding ? "Adding..." : "Add Item"}
+                </button>
+              </div>
+            </aside>
           </div>
-        ))}
+        </section>
       </div>
 
       {selectedImage && (
         <div
           onClick={() => setSelectedImage("")}
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6"
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-6"
         >
           <img
             src={selectedImage}

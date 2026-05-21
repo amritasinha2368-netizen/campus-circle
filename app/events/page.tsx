@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 
 export default function EventsPage() {
@@ -9,10 +10,29 @@ export default function EventsPage() {
   const [description, setDescription] = useState("");
   const [date, setDate] = useState("");
   const [location, setLocation] = useState("");
-  const [images, setImages] = useState<any[]>([]);
+  const [files, setFiles] = useState<any[]>([]);
+  const [userEmail, setUserEmail] = useState("");
   const [selectedImage, setSelectedImage] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+  const [search, setSearch] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const userName = userEmail ? userEmail.split("@")[0] : "";
+
+  function isImageFile(url: string) {
+    const lowerUrl = url.toLowerCase();
+    return (
+      lowerUrl.includes(".jpg") ||
+      lowerUrl.includes(".jpeg") ||
+      lowerUrl.includes(".png") ||
+      lowerUrl.includes(".webp") ||
+      lowerUrl.includes(".gif")
+    );
+  }
+
+  function getFileName(url: string) {
+    return decodeURIComponent(url.split("/").pop() || "Open File");
+  }
 
   async function fetchEvents() {
     const { data } = await supabase.from("events").select("*");
@@ -21,6 +41,7 @@ export default function EventsPage() {
 
   async function logout() {
     await supabase.auth.signOut();
+    localStorage.removeItem("userEmail");
     window.location.href = "/";
   }
 
@@ -34,7 +55,7 @@ export default function EventsPage() {
       .select();
 
     if (error || !data || data.length === 0) {
-      alert("Delete failed. Check RLS policy.");
+      alert("Delete failed. You can delete only your own event.");
       return;
     }
 
@@ -43,10 +64,12 @@ export default function EventsPage() {
   }
 
   async function addEvent() {
-    if (!title || !description || !date || !location || images.length === 0) {
-      alert("Please fill all fields and choose at least one image");
+    if (!title || !description || !date || !location || files.length === 0) {
+      alert("Please fill all fields and choose at least one file");
       return;
     }
+
+    setIsAdding(true);
 
     const {
       data: { user },
@@ -54,29 +77,32 @@ export default function EventsPage() {
 
     if (!user) {
       alert("Please login first");
+      setIsAdding(false);
       return;
     }
 
-    const uploadedUrls: string[] = [];
+    const uploadedUrls = await Promise.all(
+      files.map(async (file) => {
+        const fileName = `${Date.now()}-${file.name}`;
 
-    for (const image of images) {
-      const fileName = `${Date.now()}-${image.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, file);
 
-      const { error: uploadError } = await supabase.storage
-        .from("post-images")
-        .upload(fileName, image);
+        if (uploadError) throw uploadError;
 
-      if (uploadError) {
-        alert("Image upload failed");
-        return;
-      }
+        return supabase.storage
+          .from("post-images")
+          .getPublicUrl(fileName).data.publicUrl;
+      })
+    ).catch((error) => {
+      console.log(error);
+      alert("File upload failed");
+      setIsAdding(false);
+      return null;
+    });
 
-      const imageUrl = supabase.storage
-        .from("post-images")
-        .getPublicUrl(fileName).data.publicUrl;
-
-      uploadedUrls.push(imageUrl);
-    }
+    if (!uploadedUrls) return;
 
     const { error } = await supabase.from("events").insert([
       {
@@ -97,7 +123,7 @@ export default function EventsPage() {
       setDescription("");
       setDate("");
       setLocation("");
-      setImages([]);
+      setFiles([]);
 
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -105,9 +131,17 @@ export default function EventsPage() {
 
       fetchEvents();
     }
+
+    setIsAdding(false);
   }
 
   useEffect(() => {
+    const savedEmail = localStorage.getItem("userEmail");
+
+    if (savedEmail) {
+      setUserEmail(savedEmail);
+    }
+
     async function checkAuth() {
       const {
         data: { user },
@@ -118,157 +152,241 @@ export default function EventsPage() {
         return;
       }
 
+      setUserEmail(user.email || "");
+      localStorage.setItem("userEmail", user.email || "");
+
       fetchEvents();
     }
 
     checkAuth();
   }, []);
 
+  const filteredEvents = events.filter((event) => {
+    return (
+      event.title?.toLowerCase().includes(search.toLowerCase()) ||
+      event.description?.toLowerCase().includes(search.toLowerCase()) ||
+      event.location?.toLowerCase().includes(search.toLowerCase()) ||
+      event.date?.toLowerCase().includes(search.toLowerCase())
+    );
+  });
+
   return (
-    <main className="min-h-screen bg-black text-white px-6 md:px-16 py-10">
-      <nav className="flex flex-wrap gap-4 mb-10 items-center">
-        <a href="/home" className="bg-zinc-800 text-white px-5 py-3 rounded-xl">
-          Lost & Found
-        </a>
-
-        <a href="/notes" className="bg-zinc-800 text-white px-5 py-3 rounded-xl">
-          Notes
-        </a>
-
-        <a href="/events" className="bg-white text-black px-5 py-3 rounded-xl">
-          Events
-        </a>
-
-        <a href="/marketplace" className="bg-zinc-800 text-white px-5 py-3 rounded-xl">
-          Marketplace
-        </a>
-
-        <button
-          onClick={logout}
-          className="bg-red-500 text-white px-5 py-3 rounded-xl"
-        >
-          Logout
-        </button>
-      </nav>
-
-      <h1 className="text-5xl font-bold mb-10">Events</h1>
-
-      <div className="bg-zinc-900 p-8 rounded-3xl mb-12 max-w-2xl border border-zinc-800 shadow-xl">
-        <h2 className="text-2xl font-bold mb-4">Add Event</h2>
-
-        <input
-          className="w-full p-3 mb-4 rounded-xl bg-white text-black"
-          placeholder="Event title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-
-        <textarea
-          className="w-full p-3 mb-4 rounded-xl bg-white text-black"
-          placeholder="Event description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-
-        <input
-          className="w-full p-3 mb-4 rounded-xl bg-white text-black"
-          placeholder="Date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
-
-        <input
-          className="w-full p-3 mb-4 rounded-xl bg-white text-black"
-          placeholder="Location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
-
-        <div className="mb-6">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            onChange={(e) => setImages(Array.from(e.target.files || []))}
-          />
-
-          {images.length > 0 && (
-            <div className="mt-3 space-y-2">
-              {images.map((image, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <p className="text-gray-300 text-sm">{image.name}</p>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = images.filter((_, i) => i !== index);
-                      setImages(updated);
-
-                      if (updated.length === 0 && fileInputRef.current) {
-                        fileInputRef.current.value = "";
-                      }
-                    }}
-                    className="text-gray-400 hover:text-white text-sm"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <button
-          onClick={addEvent}
-          className="bg-white text-black px-6 py-3 rounded-xl font-semibold"
-        >
-          Add Event
-        </button>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        {events.map((event) => (
-          <div
-            key={event.id}
-            className="bg-zinc-900 p-6 rounded-3xl border border-zinc-800 shadow-lg"
-          >
-            {event.image_urls && event.image_urls.length > 0 && (
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                {event.image_urls.map((url: string, index: number) => (
-                  <img
-                    key={index}
-                    src={url}
-                    onClick={() => setSelectedImage(url)}
-                    className="w-full h-40 object-cover rounded-xl cursor-pointer"
-                  />
-                ))}
+    <main className="min-h-screen bg-black text-white">
+      <div className="min-h-screen grid lg:grid-cols-[260px_1fr]">
+        <aside className="hidden lg:flex flex-col justify-between border-r border-white/10 bg-black p-6">
+          <div>
+            <div className="flex items-center gap-3 mb-10">
+              <div className="h-12 w-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl font-black">
+                C
               </div>
+
+              <div>
+                <h1 className="text-xl font-bold">Campus Circle</h1>
+                <p className="text-xs text-gray-400">Student network</p>
+              </div>
+            </div>
+
+            <nav className="space-y-3">
+              <Link
+                href="/home"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
+                🏠 Lost & Found
+              </Link>
+
+              <Link
+                href="/notes"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
+                📄 Notes
+              </Link>
+
+              <Link
+                href="/events"
+                className="block rounded-2xl bg-purple-600/30 border border-purple-400/30 px-5 py-4 font-semibold"
+              >
+                📅 Events
+              </Link>
+
+              <Link
+                href="/marketplace"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
+                🛒 Marketplace
+              </Link>
+            </nav>
+          </div>
+
+          <button
+            onClick={logout}
+            className="w-full rounded-2xl bg-red-500/15 border border-red-500/30 text-red-200 px-5 py-4"
+          >
+            Logout
+          </button>
+        </aside>
+
+        <section className="p-5 md:p-8 lg:p-10">
+          <header className="mb-10">
+            {userName && (
+              <p className="text-purple-300 mb-3 text-lg">
+                Hello, {userName} 👋
+              </p>
             )}
 
-            <p className="text-purple-400 mb-2 font-semibold">
-              📅 {event.date}
-            </p>
+            <h2 className="text-4xl md:text-6xl font-black leading-tight">
+              Campus
+              <br />
+              <span className="text-purple-400">Events Dashboard</span>
+            </h2>
+          </header>
 
-            <h2 className="text-2xl font-bold">{event.title}</h2>
+          <div className="grid xl:grid-cols-[1fr_430px] gap-8">
+            <section>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
+                <div>
+                  <h3 className="text-2xl font-bold">Upcoming Events</h3>
+                  <p className="text-sm text-gray-500">
+                    Showing {filteredEvents.length} of {events.length} events
+                  </p>
+                </div>
 
-            <p className="text-gray-400 mt-2">{event.description}</p>
+                <input
+                  className="w-full md:w-80 px-4 py-3 rounded-2xl bg-zinc-900 border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Search events..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
 
-            <p className="text-gray-500 mt-2">📍 {event.location}</p>
+              <div className="space-y-5">
+                {filteredEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="rounded-3xl border border-white/10 bg-zinc-900 p-5"
+                  >
+                    {event.image_urls && event.image_urls.length > 0 && (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+                        {event.image_urls.map((url: string, index: number) =>
+                          isImageFile(url) ? (
+                            <img
+                              key={index}
+                              src={url}
+                              onClick={() => setSelectedImage(url)}
+                              className="w-full h-36 object-cover rounded-2xl cursor-pointer"
+                            />
+                          ) : (
+                            <a
+                              key={index}
+                              href={url}
+                              target="_blank"
+                              className="h-36 rounded-2xl bg-black border border-white/10 flex flex-col items-center justify-center text-center p-4"
+                            >
+                              <span className="text-3xl mb-2">📄</span>
 
-            <button
-              onClick={() => deleteEvent(event.id)}
-              className="mt-4 bg-red-500 text-white px-4 py-2 rounded-xl"
-            >
-              Delete
-            </button>
+                              <span className="text-sm text-gray-300 line-clamp-2">
+                                {getFileName(url)}
+                              </span>
+                            </a>
+                          )
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <span className="inline-block px-4 py-1 rounded-full text-sm font-semibold mb-3 bg-purple-500/20 text-purple-300">
+                          📅 {event.date}
+                        </span>
+
+                        <h4 className="text-2xl font-bold">{event.title}</h4>
+
+                        <p className="text-gray-400 mt-2">
+                          {event.description}
+                        </p>
+
+                        <p className="text-gray-500 mt-3">
+                          📍 {event.location}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => deleteEvent(event.id)}
+                        className="rounded-lg bg-red-500/10 border border-red-500/20 text-red-200 px-3 py-1.5 text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {filteredEvents.length === 0 && (
+                  <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center text-gray-400">
+                    No matching events found.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <aside className="rounded-3xl border border-white/10 bg-zinc-900 p-6 h-fit sticky top-8">
+              <h3 className="text-2xl font-bold mb-2">Add Event</h3>
+
+              <div className="space-y-4">
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Event title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+
+                <textarea
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Event description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+
+                <div className="rounded-2xl border border-dashed border-purple-400/40 bg-black p-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    onChange={(e) =>
+                      setFiles(Array.from(e.target.files || []))
+                    }
+                  />
+                </div>
+
+                <button
+                  onClick={addEvent}
+                  disabled={isAdding}
+                  className="w-full bg-purple-600 text-white px-6 py-4 rounded-2xl font-bold disabled:opacity-60"
+                >
+                  {isAdding ? "Adding..." : "Add Event"}
+                </button>
+              </div>
+            </aside>
           </div>
-        ))}
+        </section>
       </div>
 
       {selectedImage && (
         <div
           onClick={() => setSelectedImage("")}
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6"
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-6"
         >
           <img
             src={selectedImage}

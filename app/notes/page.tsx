@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 
 export default function NotesPage() {
@@ -9,8 +10,16 @@ export default function NotesPage() {
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<any[]>([]);
+  const [userEmail, setUserEmail] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+  const [search, setSearch] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const userName = userEmail ? userEmail.split("@")[0] : "";
+
+  function getFileName(url: string) {
+    return decodeURIComponent(url.split("/").pop() || "Open File");
+  }
 
   async function fetchNotes() {
     const { data } = await supabase.from("notes").select("*");
@@ -19,6 +28,7 @@ export default function NotesPage() {
 
   async function logout() {
     await supabase.auth.signOut();
+    localStorage.removeItem("userEmail");
     window.location.href = "/";
   }
 
@@ -32,7 +42,7 @@ export default function NotesPage() {
       .select();
 
     if (error || !data || data.length === 0) {
-      alert("Delete failed. Check RLS policy.");
+      alert("Delete failed. You can delete only your own note.");
       return;
     }
 
@@ -46,35 +56,42 @@ export default function NotesPage() {
       return;
     }
 
+    setIsAdding(true);
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
       alert("Please login first");
+      setIsAdding(false);
       return;
     }
 
-    const uploadedUrls: string[] = [];
+    const uploadedUrls = await Promise.all(
+      files.map(async (file) => {
+        const fileName = `${Date.now()}-${file.name}`;
 
-    for (const file of files) {
-      const fileName = `${Date.now()}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("post-images")
+          .upload(fileName, file);
 
-      const { error: uploadError } = await supabase.storage
-        .from("post-images")
-        .upload(fileName, file);
+        if (uploadError) {
+          throw uploadError;
+        }
 
-      if (uploadError) {
-        alert("File upload failed");
-        return;
-      }
+        return supabase.storage
+          .from("post-images")
+          .getPublicUrl(fileName).data.publicUrl;
+      })
+    ).catch((error) => {
+      console.log(error);
+      alert("File upload failed");
+      setIsAdding(false);
+      return null;
+    });
 
-      const fileUrl = supabase.storage
-        .from("post-images")
-        .getPublicUrl(fileName).data.publicUrl;
-
-      uploadedUrls.push(fileUrl);
-    }
+    if (!uploadedUrls) return;
 
     const { error } = await supabase.from("notes").insert([
       {
@@ -102,9 +119,17 @@ export default function NotesPage() {
 
       fetchNotes();
     }
+
+    setIsAdding(false);
   }
 
   useEffect(() => {
+    const savedEmail = localStorage.getItem("userEmail");
+
+    if (savedEmail) {
+      setUserEmail(savedEmail);
+    }
+
     async function checkAuth() {
       const {
         data: { user },
@@ -115,154 +140,217 @@ export default function NotesPage() {
         return;
       }
 
+      setUserEmail(user.email || "");
+      localStorage.setItem("userEmail", user.email || "");
+
       fetchNotes();
     }
 
     checkAuth();
   }, []);
 
+  const filteredNotes = notes.filter((note) => {
+    return (
+      note.title?.toLowerCase().includes(search.toLowerCase()) ||
+      note.description?.toLowerCase().includes(search.toLowerCase()) ||
+      note.subject?.toLowerCase().includes(search.toLowerCase())
+    );
+  });
+
   return (
-    <main className="min-h-screen bg-black text-white px-6 md:px-16 py-10">
-      <nav className="flex flex-wrap gap-4 mb-10 items-center">
-        <a href="/home" className="bg-zinc-800 text-white px-5 py-3 rounded-xl">
-          Lost & Found
-        </a>
-
-        <a href="/notes" className="bg-white text-black px-5 py-3 rounded-xl">
-          Notes
-        </a>
-
-        <a href="/events" className="bg-zinc-800 text-white px-5 py-3 rounded-xl">
-          Events
-        </a>
-
-        <a href="/marketplace" className="bg-zinc-800 text-white px-5 py-3 rounded-xl">
-          Marketplace
-        </a>
-
-        <button
-          onClick={logout}
-          className="bg-red-500 text-white px-5 py-3 rounded-xl"
-        >
-          Logout
-        </button>
-      </nav>
-
-      <h1 className="text-5xl font-bold mb-10">
-        Notes Sharing
-      </h1>
-
-      <div className="bg-zinc-900 p-8 rounded-3xl mb-12 max-w-2xl border border-zinc-800 shadow-xl">
-        <h2 className="text-2xl font-bold mb-4">
-          Add Note
-        </h2>
-
-        <input
-          className="w-full p-3 mb-4 rounded-xl bg-white text-black"
-          placeholder="Note title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-
-        <input
-          className="w-full p-3 mb-4 rounded-xl bg-white text-black"
-          placeholder="Subject"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-        />
-
-        <textarea
-          className="w-full p-3 mb-4 rounded-xl bg-white text-black"
-          placeholder="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-
-        <div className="mb-6">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            onChange={(e) => setFiles(Array.from(e.target.files || []))}
-          />
-
-          {files.length > 0 && (
-            <div className="mt-3 space-y-2">
-              {files.map((file, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <p className="text-gray-300 text-sm">
-                    {file.name}
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = files.filter((_, i) => i !== index);
-                      setFiles(updated);
-
-                      if (updated.length === 0 && fileInputRef.current) {
-                        fileInputRef.current.value = "";
-                      }
-                    }}
-                    className="text-gray-400 hover:text-white text-sm"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <button
-          onClick={addNote}
-          className="bg-white text-black px-6 py-3 rounded-xl font-semibold"
-        >
-          Add Note
-        </button>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        {notes.map((note) => (
-          <div
-            key={note.id}
-            className="bg-zinc-900 p-6 rounded-3xl border border-zinc-800 shadow-lg"
-          >
-            <p className="text-blue-400 mb-2 font-semibold">
-              {note.subject}
-            </p>
-
-            <h2 className="text-2xl font-bold">
-              {note.title}
-            </h2>
-
-            <p className="text-gray-400 mt-2">
-              {note.description}
-            </p>
-
-            {note.file_urls && note.file_urls.length > 0 && (
-              <div className="mt-4 space-y-2">
-                {note.file_urls.map((url: string, index: number) => (
-                  <a
-                    key={index}
-                    href={url}
-                    target="_blank"
-                    className="block bg-white text-black px-5 py-3 rounded-xl font-semibold"
-                  >
-                    Open File {index + 1}
-                  </a>
-                ))}
+    <main className="min-h-screen bg-black text-white">
+      <div className="min-h-screen grid lg:grid-cols-[260px_1fr]">
+        <aside className="hidden lg:flex flex-col justify-between border-r border-white/10 bg-black p-6">
+          <div>
+            <div className="flex items-center gap-3 mb-10">
+              <div className="h-12 w-12 rounded-2xl bg-purple-600 flex items-center justify-center text-2xl font-black">
+                C
               </div>
+
+              <div>
+                <h1 className="text-xl font-bold">Campus Circle</h1>
+                <p className="text-xs text-gray-400">Student network</p>
+              </div>
+            </div>
+
+            <nav className="space-y-3">
+              <Link
+                href="/home"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
+                🏠 Lost & Found
+              </Link>
+
+              <Link
+                href="/notes"
+                className="block rounded-2xl bg-purple-600/30 border border-purple-400/30 px-5 py-4 font-semibold"
+              >
+                📄 Notes
+              </Link>
+
+              <Link
+                href="/events"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
+                📅 Events
+              </Link>
+
+              <Link
+                href="/marketplace"
+                className="block rounded-2xl px-5 py-4 text-gray-300"
+              >
+                🛒 Marketplace
+              </Link>
+            </nav>
+          </div>
+
+          <button
+            onClick={logout}
+            className="w-full rounded-2xl bg-red-500/15 border border-red-500/30 text-red-200 px-5 py-4"
+          >
+            Logout
+          </button>
+        </aside>
+
+        <section className="p-5 md:p-8 lg:p-10">
+          <header className="mb-10">
+            {userName && (
+              <p className="text-purple-300 mb-3 text-lg">
+                Hello, {userName} 👋
+              </p>
             )}
 
-            <button
-              onClick={() => deleteNote(note.id)}
-              className="mt-4 bg-red-500 text-white px-4 py-2 rounded-xl"
-            >
-              Delete
-            </button>
+            <h2 className="text-4xl md:text-6xl font-black leading-tight">
+              Notes
+              <br />
+              <span className="text-purple-400">
+                Sharing Dashboard
+              </span>
+            </h2>
+          </header>
+
+          <div className="grid xl:grid-cols-[1fr_430px] gap-8">
+            <section>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
+                <div>
+                  <h3 className="text-2xl font-bold">Shared Notes</h3>
+                </div>
+
+                <input
+                  className="w-full md:w-80 px-4 py-3 rounded-2xl bg-zinc-900 border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Search notes..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-5">
+                {filteredNotes.map((note) => (
+                  <div
+                    key={note.id}
+                    className="rounded-3xl border border-white/10 bg-zinc-900 p-5"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <span className="inline-block px-4 py-1 rounded-full text-sm font-semibold mb-3 bg-blue-500/20 text-blue-300">
+                          📘 {note.subject}
+                        </span>
+
+                        <h4 className="text-2xl font-bold">
+                          {note.title}
+                        </h4>
+
+                        <p className="text-gray-400 mt-2">
+                          {note.description}
+                        </p>
+
+                        {note.file_urls && note.file_urls.length > 0 && (
+                          <div className="mt-5 grid sm:grid-cols-2 gap-3">
+                            {note.file_urls.map(
+                              (url: string, index: number) => (
+                                <a
+                                  key={index}
+                                  href={url}
+                                  target="_blank"
+                                  className="rounded-2xl bg-black border border-white/10 p-4 flex items-center gap-3"
+                                >
+                                  <span className="text-2xl">📄</span>
+
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold">
+                                      Open File {index + 1}
+                                    </p>
+
+                                    <p className="text-xs text-gray-500 truncate">
+                                      {getFileName(url)}
+                                    </p>
+                                  </div>
+                                </a>
+                              )
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => deleteNote(note.id)}
+                        className="rounded-lg bg-red-500/10 border border-red-500/20 text-red-200 px-3 py-1.5 text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <aside className="rounded-3xl border border-white/10 bg-zinc-900 p-6 h-fit sticky top-8">
+              <h3 className="text-2xl font-bold mb-2">Add Note</h3>
+
+              <div className="space-y-4">
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Note title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Subject"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                />
+
+                <textarea
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+
+                <div className="rounded-2xl border border-dashed border-purple-400/40 bg-black p-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    onChange={(e) =>
+                      setFiles(Array.from(e.target.files || []))
+                    }
+                  />
+                </div>
+
+                <button
+                  onClick={addNote}
+                  disabled={isAdding}
+                  className="w-full bg-purple-600 text-white px-6 py-4 rounded-2xl font-bold disabled:opacity-60"
+                >
+                  {isAdding ? "Adding..." : "Add Note"}
+                </button>
+              </div>
+            </aside>
           </div>
-        ))}
+        </section>
       </div>
     </main>
   );
