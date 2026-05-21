@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import MobileNav from "../../components/MobileNav";
 import { supabase } from "../../lib/supabase";
 
 export default function EventsPage() {
@@ -21,6 +22,7 @@ export default function EventsPage() {
 
   function isImageFile(url: string) {
     const lowerUrl = url.toLowerCase();
+
     return (
       lowerUrl.includes(".jpg") ||
       lowerUrl.includes(".jpeg") ||
@@ -89,7 +91,9 @@ export default function EventsPage() {
           .from("post-images")
           .upload(fileName, file);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          throw uploadError;
+        }
 
         return supabase.storage
           .from("post-images")
@@ -119,6 +123,7 @@ export default function EventsPage() {
       alert("Error adding event");
     } else {
       alert("Event added successfully");
+
       setTitle("");
       setDescription("");
       setDate("");
@@ -187,17 +192,11 @@ export default function EventsPage() {
             </div>
 
             <nav className="space-y-3">
-              <Link
-                href="/home"
-                className="block rounded-2xl px-5 py-4 text-gray-300"
-              >
+              <Link href="/home" className="block rounded-2xl px-5 py-4 text-gray-300">
                 🏠 Lost & Found
               </Link>
 
-              <Link
-                href="/notes"
-                className="block rounded-2xl px-5 py-4 text-gray-300"
-              >
+              <Link href="/notes" className="block rounded-2xl px-5 py-4 text-gray-300">
                 📄 Notes
               </Link>
 
@@ -208,10 +207,7 @@ export default function EventsPage() {
                 📅 Events
               </Link>
 
-              <Link
-                href="/marketplace"
-                className="block rounded-2xl px-5 py-4 text-gray-300"
-              >
+              <Link href="/marketplace" className="block rounded-2xl px-5 py-4 text-gray-300">
                 🛒 Marketplace
               </Link>
             </nav>
@@ -226,6 +222,8 @@ export default function EventsPage() {
         </aside>
 
         <section className="p-5 md:p-8 lg:p-10">
+          <MobileNav active="events" logout={logout} />
+
           <header className="mb-10">
             {userName && (
               <p className="text-purple-300 mb-3 text-lg">
@@ -236,8 +234,14 @@ export default function EventsPage() {
             <h2 className="text-4xl md:text-6xl font-black leading-tight">
               Campus
               <br />
-              <span className="text-purple-400">Events Dashboard</span>
+              <span className="text-purple-400">
+                Events Dashboard
+              </span>
             </h2>
+
+            <p className="text-gray-400 mt-4 max-w-2xl text-lg">
+              Explore and share campus events, workshops, hackathons, and meetups.
+            </p>
           </header>
 
           <div className="grid xl:grid-cols-[1fr_430px] gap-8">
@@ -245,6 +249,7 @@ export default function EventsPage() {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
                 <div>
                   <h3 className="text-2xl font-bold">Upcoming Events</h3>
+
                   <p className="text-sm text-gray-500">
                     Showing {filteredEvents.length} of {events.length} events
                   </p>
@@ -298,7 +303,9 @@ export default function EventsPage() {
                           📅 {event.date}
                         </span>
 
-                        <h4 className="text-2xl font-bold">{event.title}</h4>
+                        <h4 className="text-2xl font-bold">
+                          {event.title}
+                        </h4>
 
                         <p className="text-gray-400 mt-2">
                           {event.description}
@@ -318,17 +325,13 @@ export default function EventsPage() {
                     </div>
                   </div>
                 ))}
-
-                {filteredEvents.length === 0 && (
-                  <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center text-gray-400">
-                    No matching events found.
-                  </div>
-                )}
               </div>
             </section>
 
             <aside className="rounded-3xl border border-white/10 bg-zinc-900 p-6 h-fit sticky top-8">
-              <h3 className="text-2xl font-bold mb-2">Add Event</h3>
+              <h3 className="text-2xl font-bold mb-2">
+                Add Event
+              </h3>
 
               <div className="space-y-4">
                 <input
@@ -340,7 +343,7 @@ export default function EventsPage() {
 
                 <textarea
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
-                  placeholder="Event description"
+                  placeholder="Description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
@@ -373,7 +376,7 @@ export default function EventsPage() {
                 <button
                   onClick={addEvent}
                   disabled={isAdding}
-                  className="w-full bg-purple-600 text-white px-6 py-4 rounded-2xl font-bold disabled:opacity-60"
+                  className="w-full bg-purple-600 text-white px-6 py-4 rounded-2xl font-bold disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isAdding ? "Adding..." : "Add Event"}
                 </button>

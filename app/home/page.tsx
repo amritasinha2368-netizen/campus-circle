@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import MobileNav from "../../components/MobileNav";
 import { supabase } from "../../lib/supabase";
 
 export default function Home() {
@@ -22,6 +23,7 @@ export default function Home() {
 
   function isImageFile(url: string) {
     const lowerUrl = url.toLowerCase();
+
     return (
       lowerUrl.includes(".jpg") ||
       lowerUrl.includes(".jpeg") ||
@@ -52,7 +54,7 @@ export default function Home() {
   }
 
   async function deletePost(id: string) {
-    if (!confirm("Are you sure you want to delete this post?")) return;
+    if (!confirm("Delete this post?")) return;
 
     const { data, error } = await supabase
       .from("posts")
@@ -95,7 +97,9 @@ export default function Home() {
           .from("post-images")
           .upload(fileName, file);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          throw uploadError;
+        }
 
         return supabase.storage
           .from("post-images")
@@ -125,6 +129,7 @@ export default function Home() {
       alert("Error adding post");
     } else {
       alert("Post added successfully");
+
       setTitle("");
       setDescription("");
       setLocation("");
@@ -166,9 +171,6 @@ export default function Home() {
 
     checkAuth();
   }, []);
-
-  const lostCount = posts.filter((post) => post.type === "Lost").length;
-  const foundCount = posts.filter((post) => post.type === "Found").length;
 
   const filteredPosts = posts.filter((post) => {
     const matchesSearch =
@@ -237,68 +239,34 @@ export default function Home() {
         </aside>
 
         <section className="p-5 md:p-8 lg:p-10">
-          <nav className="lg:hidden flex flex-wrap gap-3 mb-8">
-            <Link href="/home" className="bg-white text-black px-4 py-3 rounded-xl">
-              Lost & Found
-            </Link>
+          <MobileNav active="home" logout={logout} />
 
-            <Link href="/notes" className="bg-white/10 text-white px-4 py-3 rounded-xl">
-              Notes
-            </Link>
-
-            <Link href="/events" className="bg-white/10 text-white px-4 py-3 rounded-xl">
-              Events
-            </Link>
-
-            <Link href="/marketplace" className="bg-white/10 text-white px-4 py-3 rounded-xl">
-              Marketplace
-            </Link>
-
-            <button onClick={logout} className="bg-red-500 text-white px-4 py-3 rounded-xl">
-              Logout
-            </button>
-          </nav>
-
-          <header className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6 mb-10">
-            <div>
-              {userName && (
-                <p className="text-purple-300 mb-3 text-lg">
-                  Hello, {userName} 👋
-                </p>
-              )}
-
-              <h2 className="text-4xl md:text-6xl font-black leading-tight">
-                Lost & Found
-                <br />
-                <span className="text-purple-400">
-                  Campus Dashboard
-                </span>
-              </h2>
-
-              <p className="text-gray-400 mt-4 max-w-2xl text-lg">
-                Post lost or found items, upload multiple images/files, and help
-                your campus community reconnect with what matters.
+          <header className="mb-10">
+            {userName && (
+              <p className="text-purple-300 mb-3 text-lg">
+                Hello, {userName} 👋
               </p>
-            </div>
+            )}
 
-            <div className="grid grid-cols-2 gap-4 min-w-[280px]">
-              <div className="rounded-3xl border border-white/10 bg-zinc-900 p-5">
-                <p className="text-3xl font-black">{lostCount}</p>
-                <p className="text-gray-400">Lost items</p>
-              </div>
+            <h2 className="text-4xl md:text-6xl font-black leading-tight">
+              Lost & Found
+              <br />
+              <span className="text-purple-400">
+                Campus Dashboard
+              </span>
+            </h2>
 
-              <div className="rounded-3xl border border-white/10 bg-zinc-900 p-5">
-                <p className="text-3xl font-black">{foundCount}</p>
-                <p className="text-gray-400">Found items</p>
-              </div>
-            </div>
+            <p className="text-gray-400 mt-4 max-w-2xl text-lg">
+              Post lost or found items and help students reconnect with their belongings.
+            </p>
           </header>
 
           <div className="grid xl:grid-cols-[1fr_430px] gap-8">
             <section>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
                 <div>
-                  <h3 className="text-2xl font-bold">Recently Posted</h3>
+                  <h3 className="text-2xl font-bold">Recent Posts</h3>
+
                   <p className="text-sm text-gray-500">
                     Showing {filteredPosts.length} of {posts.length} posts
                   </p>
@@ -307,7 +275,7 @@ export default function Home() {
                 <div className="flex flex-col sm:flex-row gap-3">
                   <input
                     className="w-full sm:w-72 px-4 py-3 rounded-2xl bg-zinc-900 border border-white/10 text-white placeholder:text-gray-500 outline-none"
-                    placeholder="Search item, place..."
+                    placeholder="Search items..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
@@ -348,6 +316,7 @@ export default function Home() {
                               className="h-36 rounded-2xl bg-black border border-white/10 flex flex-col items-center justify-center text-center p-4"
                             >
                               <span className="text-3xl mb-2">📄</span>
+
                               <span className="text-sm text-gray-300 line-clamp-2">
                                 {getFileName(url)}
                               </span>
@@ -369,7 +338,9 @@ export default function Home() {
                           {post.type}
                         </span>
 
-                        <h4 className="text-2xl font-bold">{post.title}</h4>
+                        <h4 className="text-2xl font-bold">
+                          {post.title}
+                        </h4>
 
                         <p className="text-gray-400 mt-2">
                           {post.description}
@@ -389,26 +360,18 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
-
-                {filteredPosts.length === 0 && (
-                  <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center text-gray-400">
-                    No matching posts found.
-                  </div>
-                )}
               </div>
             </section>
 
             <aside className="rounded-3xl border border-white/10 bg-zinc-900 p-6 h-fit sticky top-8">
-              <h3 className="text-2xl font-bold mb-2">Post an Item</h3>
-
-              <p className="text-gray-400 mb-6">
-                Add clear details so students can recognize it fast.
-              </p>
+              <h3 className="text-2xl font-bold mb-2">
+                Add Post
+              </h3>
 
               <div className="space-y-4">
                 <input
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
-                  placeholder="Title"
+                  placeholder="Item title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
@@ -441,38 +404,10 @@ export default function Home() {
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    onChange={(e) => setFiles(Array.from(e.target.files || []))}
+                    onChange={(e) =>
+                      setFiles(Array.from(e.target.files || []))
+                    }
                   />
-
-                  {files.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      {files.map((file, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between gap-3 rounded-xl bg-zinc-900 px-3 py-2"
-                        >
-                          <p className="text-gray-300 text-sm truncate">
-                            {file.name}
-                          </p>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = files.filter((_, i) => i !== index);
-                              setFiles(updated);
-
-                              if (updated.length === 0 && fileInputRef.current) {
-                                fileInputRef.current.value = "";
-                              }
-                            }}
-                            className="text-gray-400 text-sm"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 <button
@@ -504,9 +439,9 @@ export default function Home() {
           >
             ✕
           </button>
-        </div>
+            </div>
       )}
     </main>
   );
 }
-
+        

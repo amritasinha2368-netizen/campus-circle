@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import MobileNav from "../../components/MobileNav";
 import { supabase } from "../../lib/supabase";
 
 export default function NotesPage() {
@@ -174,31 +175,19 @@ export default function NotesPage() {
             </div>
 
             <nav className="space-y-3">
-              <Link
-                href="/home"
-                className="block rounded-2xl px-5 py-4 text-gray-300"
-              >
+              <Link href="/home" className="block rounded-2xl px-5 py-4 text-gray-300">
                 🏠 Lost & Found
               </Link>
 
-              <Link
-                href="/notes"
-                className="block rounded-2xl bg-purple-600/30 border border-purple-400/30 px-5 py-4 font-semibold"
-              >
+              <Link href="/notes" className="block rounded-2xl bg-purple-600/30 border border-purple-400/30 px-5 py-4 font-semibold">
                 📄 Notes
               </Link>
 
-              <Link
-                href="/events"
-                className="block rounded-2xl px-5 py-4 text-gray-300"
-              >
+              <Link href="/events" className="block rounded-2xl px-5 py-4 text-gray-300">
                 📅 Events
               </Link>
 
-              <Link
-                href="/marketplace"
-                className="block rounded-2xl px-5 py-4 text-gray-300"
-              >
+              <Link href="/marketplace" className="block rounded-2xl px-5 py-4 text-gray-300">
                 🛒 Marketplace
               </Link>
             </nav>
@@ -213,6 +202,8 @@ export default function NotesPage() {
         </aside>
 
         <section className="p-5 md:p-8 lg:p-10">
+          <MobileNav active="notes" logout={logout} />
+
           <header className="mb-10">
             {userName && (
               <p className="text-purple-300 mb-3 text-lg">
@@ -223,10 +214,12 @@ export default function NotesPage() {
             <h2 className="text-4xl md:text-6xl font-black leading-tight">
               Notes
               <br />
-              <span className="text-purple-400">
-                Sharing Dashboard
-              </span>
+              <span className="text-purple-400">Sharing Dashboard</span>
             </h2>
+
+            <p className="text-gray-400 mt-4 max-w-2xl text-lg">
+              Upload notes, PDFs, assignments, and study resources.
+            </p>
           </header>
 
           <div className="grid xl:grid-cols-[1fr_430px] gap-8">
@@ -234,6 +227,9 @@ export default function NotesPage() {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
                 <div>
                   <h3 className="text-2xl font-bold">Shared Notes</h3>
+                  <p className="text-sm text-gray-500">
+                    Showing {filteredNotes.length} of {notes.length} notes
+                  </p>
                 </div>
 
                 <input
@@ -256,38 +252,32 @@ export default function NotesPage() {
                           📘 {note.subject}
                         </span>
 
-                        <h4 className="text-2xl font-bold">
-                          {note.title}
-                        </h4>
+                        <h4 className="text-2xl font-bold">{note.title}</h4>
 
-                        <p className="text-gray-400 mt-2">
-                          {note.description}
-                        </p>
+                        <p className="text-gray-400 mt-2">{note.description}</p>
 
                         {note.file_urls && note.file_urls.length > 0 && (
                           <div className="mt-5 grid sm:grid-cols-2 gap-3">
-                            {note.file_urls.map(
-                              (url: string, index: number) => (
-                                <a
-                                  key={index}
-                                  href={url}
-                                  target="_blank"
-                                  className="rounded-2xl bg-black border border-white/10 p-4 flex items-center gap-3"
-                                >
-                                  <span className="text-2xl">📄</span>
+                            {note.file_urls.map((url: string, index: number) => (
+                              <a
+                                key={index}
+                                href={url}
+                                target="_blank"
+                                className="rounded-2xl bg-black border border-white/10 p-4 flex items-center gap-3"
+                              >
+                                <span className="text-2xl">📄</span>
 
-                                  <div className="min-w-0">
-                                    <p className="text-sm font-semibold">
-                                      Open File {index + 1}
-                                    </p>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold">
+                                    Open File {index + 1}
+                                  </p>
 
-                                    <p className="text-xs text-gray-500 truncate">
-                                      {getFileName(url)}
-                                    </p>
-                                  </div>
-                                </a>
-                              )
-                            )}
+                                  <p className="text-xs text-gray-500 truncate">
+                                    {getFileName(url)}
+                                  </p>
+                                </div>
+                              </a>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -301,11 +291,21 @@ export default function NotesPage() {
                     </div>
                   </div>
                 ))}
+
+                {filteredNotes.length === 0 && (
+                  <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center text-gray-400">
+                    No matching notes found.
+                  </div>
+                )}
               </div>
             </section>
 
             <aside className="rounded-3xl border border-white/10 bg-zinc-900 p-6 h-fit sticky top-8">
               <h3 className="text-2xl font-bold mb-2">Add Note</h3>
+
+              <p className="text-gray-400 mb-6">
+                Upload useful study material for your classmates.
+              </p>
 
               <div className="space-y-4">
                 <input
@@ -338,12 +338,48 @@ export default function NotesPage() {
                       setFiles(Array.from(e.target.files || []))
                     }
                   />
+
+                  {files.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      {files.map((file, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between gap-3 rounded-xl bg-zinc-900 px-3 py-2"
+                        >
+                          <p className="text-gray-300 text-sm truncate">
+                            {file.name}
+                          </p>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = files.filter(
+                                (_, i) => i !== index
+                              );
+
+                              setFiles(updated);
+
+                              if (
+                                updated.length === 0 &&
+                                fileInputRef.current
+                              ) {
+                                fileInputRef.current.value = "";
+                              }
+                            }}
+                            className="text-gray-400 text-sm"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <button
                   onClick={addNote}
                   disabled={isAdding}
-                  className="w-full bg-purple-600 text-white px-6 py-4 rounded-2xl font-bold disabled:opacity-60"
+                  className="w-full bg-purple-600 text-white px-6 py-4 rounded-2xl font-bold disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isAdding ? "Adding..." : "Add Note"}
                 </button>

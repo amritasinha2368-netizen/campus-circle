@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import MobileNav from "../../components/MobileNav";
 import { supabase } from "../../lib/supabase";
 
 export default function MarketplacePage() {
@@ -229,6 +230,8 @@ export default function MarketplacePage() {
         </aside>
 
         <section className="p-5 md:p-8 lg:p-10">
+          <MobileNav active="marketplace" logout={logout} />
+
           <header className="mb-10">
             {userName && (
               <p className="text-purple-300 mb-3 text-lg">
@@ -243,13 +246,17 @@ export default function MarketplacePage() {
                 Marketplace
               </span>
             </h2>
+
+            <p className="text-gray-400 mt-4 max-w-2xl text-lg">
+              Buy and sell books, gadgets, hostel items, and more.
+            </p>
           </header>
 
           <div className="grid xl:grid-cols-[1fr_430px] gap-8">
             <section>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
                 <div>
-                  <h3 className="text-2xl font-bold">Listed Items</h3>
+                  <h3 className="text-2xl font-bold">Marketplace Items</h3>
 
                   <p className="text-sm text-gray-500">
                     Showing {filteredItems.length} of {items.length} items
@@ -326,18 +333,12 @@ export default function MarketplacePage() {
                     </div>
                   </div>
                 ))}
-
-                {filteredItems.length === 0 && (
-                  <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center text-gray-400">
-                    No matching items found.
-                  </div>
-                )}
               </div>
             </section>
 
             <aside className="rounded-3xl border border-white/10 bg-zinc-900 p-6 h-fit sticky top-8">
               <h3 className="text-2xl font-bold mb-2">
-                Sell Item
+                Add Item
               </h3>
 
               <div className="space-y-4">
@@ -383,7 +384,7 @@ export default function MarketplacePage() {
                 <button
                   onClick={addItem}
                   disabled={isAdding}
-                  className="w-full bg-purple-600 text-white px-6 py-4 rounded-2xl font-bold disabled:opacity-60"
+                  className="w-full bg-purple-600 text-white px-6 py-4 rounded-2xl font-bold disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isAdding ? "Adding..." : "Add Item"}
                 </button>
