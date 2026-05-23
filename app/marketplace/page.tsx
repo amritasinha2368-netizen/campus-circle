@@ -404,7 +404,7 @@ export default function MarketplacePage() {
   type="file"
   multiple
   accept="image/*,.pdf,.doc,.docx,.ppt,.pptx"
-  capture="environment"
+  
   onChange={(e) => setFiles(Array.from(e.target.files || []))}
 />
 
