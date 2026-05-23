@@ -382,7 +382,7 @@ export default function MarketplacePage() {
 
                 <input
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
-                  placeholder="Seller name optional"
+                  placeholder="Seller name (optional)"
                   value={sellerName}
                   onChange={(e) => setSellerName(e.target.value)}
                 />
@@ -399,12 +399,14 @@ export default function MarketplacePage() {
                     Upload item images/files
                   </p>
 
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    onChange={(e) => setFiles(Array.from(e.target.files || []))}
-                  />
+                 <input
+  ref={fileInputRef}
+  type="file"
+  multiple
+  accept="image/*,.pdf,.doc,.docx,.ppt,.pptx"
+  capture="environment"
+  onChange={(e) => setFiles(Array.from(e.target.files || []))}
+/>
 
                   {files.length > 0 && (
                     <div className="mt-4 space-y-2">

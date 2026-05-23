@@ -354,12 +354,13 @@ export default function EventsPage() {
 
                 <div className="rounded-2xl border border-dashed border-purple-400/40 bg-black p-4">
                   <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    onChange={(e) => setFiles(Array.from(e.target.files || []))}
-                  />
-
+  ref={fileInputRef}
+  type="file"
+  multiple
+  accept="image/*,.pdf,.doc,.docx,.ppt,.pptx"
+  capture="environment"
+  onChange={(e) => setFiles(Array.from(e.target.files || []))}
+/>
                   {files.length > 0 && (
                     <div className="mt-4 space-y-2">
                       {files.map((file, index) => (

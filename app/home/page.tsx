@@ -412,13 +412,14 @@ export default function Home() {
               </p>
 
               <div className="space-y-4">
-                <input
-                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
-                  placeholder="Item title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-
+               <input
+  ref={fileInputRef}
+  type="file"
+  multiple
+  accept="image/*,.pdf,.doc,.docx,.ppt,.pptx"
+  capture="environment"
+  onChange={(e) => setFiles(Array.from(e.target.files || []))}
+/>
                 <textarea
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
                   placeholder="Description"
@@ -468,14 +469,14 @@ export default function Home() {
 
                 <input
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
-                  placeholder="Finder name optional"
+                  placeholder="Finder name (optional)"
                   value={collectorName}
                   onChange={(e) => setCollectorName(e.target.value)}
                 />
 
                 <input
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
-                  placeholder="Reward if returned optional"
+                  placeholder="Reward if returned (optional)"
                   value={reward}
                   onChange={(e) => setReward(e.target.value)}
                 />
