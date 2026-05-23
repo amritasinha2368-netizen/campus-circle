@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -10,7 +11,7 @@ export default function Home() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState("Lost");
-  const [collectNear, setCollectNear] = useState("");
+  const [location, setLocation] = useState("");
   const [lastSeen, setLastSeen] = useState("");
   const [collectorName, setCollectorName] = useState("");
   const [reward, setReward] = useState("");
@@ -22,10 +23,12 @@ export default function Home() {
   const [filter, setFilter] = useState("All");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   const userName = userEmail ? userEmail.split("@")[0] : "";
 
   function isImageFile(url: string) {
     const lowerUrl = url.toLowerCase();
+
     return (
       lowerUrl.includes(".jpg") ||
       lowerUrl.includes(".jpeg") ||
@@ -35,18 +38,9 @@ export default function Home() {
     );
   }
 
-  function getFileName(url: string) {
-    return decodeURIComponent(url.split("/").pop() || "Open File");
-  }
-
   async function fetchPosts() {
-    const { data, error } = await supabase.from("posts").select("*");
-
-    if (error) {
-      console.log(error);
-    } else {
-      setPosts(data || []);
-    }
+    const { data } = await supabase.from("posts").select("*");
+    setPosts(data || []);
   }
 
   async function logout() {
@@ -55,26 +49,9 @@ export default function Home() {
     window.location.href = "/";
   }
 
-  async function deletePost(id: string) {
-    if (!confirm("Delete this post?")) return;
-
-    const { data, error } = await supabase
-      .from("posts")
-      .delete()
-      .eq("id", id)
-      .select();
-
-    if (error || !data || data.length === 0) {
-      alert("Delete failed. You can delete only your own post.");
-      return;
-    }
-
-    alert("Post deleted");
-    fetchPosts();
-  }
-
   async function uploadFile(file: any) {
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "-");
+
     const fileName = `${Date.now()}-${safeName}`;
 
     const { error } = await supabase.storage
@@ -85,15 +62,13 @@ export default function Home() {
       throw error;
     }
 
-    return supabase.storage.from("post-images").getPublicUrl(fileName).data
-      .publicUrl;
+    return supabase.storage.from("post-images").getPublicUrl(fileName)
+      .data.publicUrl;
   }
 
   async function addPost() {
-    if (!title || !description || !collectNear || files.length === 0) {
-      alert(
-        "Please fill title, description, collect it near, and choose at least one image/file"
-      );
+    if (!title || !description || !location || files.length === 0) {
+      alert("Please fill all required fields");
       return;
     }
 
@@ -119,7 +94,7 @@ export default function Home() {
           title: title.trim(),
           description: description.trim(),
           type,
-          location: collectNear.trim(),
+          location: location.trim(),
           last_seen: lastSeen.trim(),
           collector_name: collectorName.trim(),
           reward: reward.trim(),
@@ -137,7 +112,7 @@ export default function Home() {
         setTitle("");
         setDescription("");
         setType("Lost");
-        setCollectNear("");
+        setLocation("");
         setLastSeen("");
         setCollectorName("");
         setReward("");
@@ -155,6 +130,23 @@ export default function Home() {
     }
 
     setIsAdding(false);
+  }
+
+  async function deletePost(id: string) {
+    if (!confirm("Delete this post?")) return;
+
+    const { data, error } = await supabase
+      .from("posts")
+      .delete()
+      .eq("id", id)
+      .select();
+
+    if (error || !data || data.length === 0) {
+      alert("Delete failed");
+      return;
+    }
+
+    fetchPosts();
   }
 
   useEffect(() => {
@@ -186,11 +178,7 @@ export default function Home() {
   const filteredPosts = posts.filter((post) => {
     const matchesSearch =
       post.title?.toLowerCase().includes(search.toLowerCase()) ||
-      post.description?.toLowerCase().includes(search.toLowerCase()) ||
-      post.location?.toLowerCase().includes(search.toLowerCase()) ||
-      post.last_seen?.toLowerCase().includes(search.toLowerCase()) ||
-      post.collector_name?.toLowerCase().includes(search.toLowerCase()) ||
-      post.reward?.toLowerCase().includes(search.toLowerCase());
+      post.description?.toLowerCase().includes(search.toLowerCase());
 
     const matchesFilter = filter === "All" || post.type === filter;
 
@@ -269,7 +257,7 @@ export default function Home() {
             </h2>
 
             <p className="text-gray-400 mt-4 max-w-2xl text-lg">
-              Post lost or found items and help students reconnect with their belongings.
+              Post lost or found items and help students reconnect with belongings.
             </p>
           </header>
 
@@ -283,31 +271,35 @@ export default function Home() {
                   </p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    className="w-full sm:w-72 px-4 py-3 rounded-2xl bg-zinc-900 border border-white/10 text-white placeholder:text-gray-500 outline-none"
-                    placeholder="Search items..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
+                <input
+                  className="w-full md:w-80 px-4 py-3 rounded-2xl bg-zinc-900 border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Search items..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
 
-                  <div className="flex gap-2">
-                    {["All", "Lost", "Found"].map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => setFilter(item)}
-                        className={`px-4 py-3 rounded-2xl border border-white/10 ${
-                          filter === item
-                            ? "bg-purple-600 text-white"
-                            : "bg-zinc-900 text-gray-300"
-                        }`}
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div className="flex gap-3 mb-6">
+                <button
+                  onClick={() => setFilter("All")}
+                  className={`px-5 py-3 rounded-2xl ${filter === "All" ? "bg-purple-600" : "bg-zinc-900 border border-white/10"}`}
+                >
+                  All
+                </button>
+
+                <button
+                  onClick={() => setFilter("Lost")}
+                  className={`px-5 py-3 rounded-2xl ${filter === "Lost" ? "bg-purple-600" : "bg-zinc-900 border border-white/10"}`}
+                >
+                  Lost
+                </button>
+
+                <button
+                  onClick={() => setFilter("Found")}
+                  className={`px-5 py-3 rounded-2xl ${filter === "Found" ? "bg-purple-600" : "bg-zinc-900 border border-white/10"}`}
+                >
+                  Found
+                </button>
               </div>
 
               <div className="space-y-5">
@@ -325,22 +317,9 @@ export default function Home() {
                               src={url}
                               onClick={() => setSelectedImage(url)}
                               className="w-full h-36 object-cover rounded-2xl cursor-pointer"
-                              alt="Uploaded item"
+                              alt="Post"
                             />
-                          ) : (
-                            <a
-                              key={index}
-                              href={url}
-                              target="_blank"
-                              className="h-36 rounded-2xl bg-black border border-white/10 flex flex-col items-center justify-center text-center p-4"
-                            >
-                              <span className="text-3xl mb-2">📄</span>
-
-                              <span className="text-sm text-gray-300 line-clamp-2">
-                                {getFileName(url)}
-                              </span>
-                            </a>
-                          )
+                          ) : null
                         )}
                       </div>
                     )}
@@ -357,7 +336,9 @@ export default function Home() {
                           {post.type}
                         </span>
 
-                        <h4 className="text-2xl font-bold">{post.title}</h4>
+                        <h4 className="text-2xl font-bold">
+                          {post.title}
+                        </h4>
 
                         <p className="text-gray-400 mt-2">
                           {post.description}
@@ -365,17 +346,17 @@ export default function Home() {
 
                         {post.last_seen && (
                           <p className="text-gray-500 mt-3">
-                            👀 Last seen: {post.last_seen}
+                            📍 Last seen: {post.last_seen}
                           </p>
                         )}
 
                         <p className="text-gray-500 mt-3">
-                          📍 Collect it near: {post.location}
+                          📦 Collect near: {post.location}
                         </p>
 
                         {post.collector_name && (
                           <p className="text-gray-500 mt-3">
-                            🙋 Found by: {post.collector_name}
+                            👤 Finder: {post.collector_name}
                           </p>
                         )}
 
@@ -395,12 +376,6 @@ export default function Home() {
                     </div>
                   </div>
                 ))}
-
-                {filteredPosts.length === 0 && (
-                  <div className="rounded-3xl border border-white/10 bg-zinc-900 p-8 text-center text-gray-400">
-                    No matching posts found.
-                  </div>
-                )}
               </div>
             </section>
 
@@ -412,7 +387,13 @@ export default function Home() {
               </p>
 
               <div className="space-y-4">
-               
+                <input
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
+                  placeholder="Title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+
                 <textarea
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
                   placeholder="Description"
@@ -420,35 +401,18 @@ export default function Home() {
                   onChange={(e) => setDescription(e.target.value)}
                 />
 
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setType("Lost")}
-                    className={`p-4 rounded-2xl border border-white/10 ${
-                      type === "Lost"
-                        ? "bg-purple-600 text-white"
-                        : "bg-black text-gray-300"
-                    }`}
-                  >
-                    Lost
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setType("Found")}
-                    className={`p-4 rounded-2xl border border-white/10 ${
-                      type === "Found"
-                        ? "bg-green-600 text-white"
-                        : "bg-black text-gray-300"
-                    }`}
-                  >
-                    Found
-                  </button>
-                </div>
+                <select
+                  className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white outline-none"
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                >
+                  <option value="Lost">Lost</option>
+                  <option value="Found">Found</option>
+                </select>
 
                 <input
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
-                  placeholder="Last seen of article"
+                  placeholder="Last seen location"
                   value={lastSeen}
                   onChange={(e) => setLastSeen(e.target.value)}
                 />
@@ -456,8 +420,8 @@ export default function Home() {
                 <input
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
                   placeholder="Collect it near"
-                  value={collectNear}
-                  onChange={(e) => setCollectNear(e.target.value)}
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
                 />
 
                 <input
@@ -480,13 +444,15 @@ export default function Home() {
                   </p>
 
                   <input
-  ref={fileInputRef}
-  type="file"
-  multiple
-  accept="image/*,.pdf,.doc,.docx,.ppt,.pptx"
-  capture="environment"
-  onChange={(e) => setFiles(Array.from(e.target.files || []))}
-/>
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx,.ppt,.pptx"
+                    capture="environment"
+                    onChange={(e) =>
+                      setFiles(Array.from(e.target.files || []))
+                    }
+                  />
 
                   {files.length > 0 && (
                     <div className="mt-4 space-y-2">
@@ -502,10 +468,16 @@ export default function Home() {
                           <button
                             type="button"
                             onClick={() => {
-                              const updated = files.filter((_, i) => i !== index);
+                              const updated = files.filter(
+                                (_, i) => i !== index
+                              );
+
                               setFiles(updated);
 
-                              if (updated.length === 0 && fileInputRef.current) {
+                              if (
+                                updated.length === 0 &&
+                                fileInputRef.current
+                              ) {
                                 fileInputRef.current.value = "";
                               }
                             }}
@@ -542,15 +514,9 @@ export default function Home() {
             className="max-w-full max-h-full rounded-2xl"
             alt="Preview"
           />
-
-          <button
-            onClick={() => setSelectedImage("")}
-            className="absolute top-6 right-6 text-white text-3xl"
-          >
-            ✕
-          </button>
         </div>
-      )}
+         )}
     </main>
   );
 }
+      
