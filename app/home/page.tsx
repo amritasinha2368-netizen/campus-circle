@@ -412,14 +412,7 @@ export default function Home() {
               </p>
 
               <div className="space-y-4">
-               <input
-  ref={fileInputRef}
-  type="file"
-  multiple
-  accept="image/*,.pdf,.doc,.docx,.ppt,.pptx"
-  capture="environment"
-  onChange={(e) => setFiles(Array.from(e.target.files || []))}
-/>
+               
                 <textarea
                   className="w-full p-4 rounded-2xl bg-black border border-white/10 text-white placeholder:text-gray-500 outline-none"
                   placeholder="Description"
@@ -487,11 +480,13 @@ export default function Home() {
                   </p>
 
                   <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    onChange={(e) => setFiles(Array.from(e.target.files || []))}
-                  />
+  ref={fileInputRef}
+  type="file"
+  multiple
+  accept="image/*,.pdf,.doc,.docx,.ppt,.pptx"
+  capture="environment"
+  onChange={(e) => setFiles(Array.from(e.target.files || []))}
+/>
 
                   {files.length > 0 && (
                     <div className="mt-4 space-y-2">
